@@ -1,23 +1,21 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { mockAppRouter } from "~/mock/router";
 import { createContext } from "~/server/api/context";
 import { appRouter } from "~/server/api/root";
+
 export const maxDuration = 300;
+
+const activeRouter =
+  process.env.NEXT_PUBLIC_MOCK_MODE === "true" ? mockAppRouter : appRouter;
 
 const handler = (req: Request) =>
   fetchRequestHandler({
-    router: appRouter,
+    router: activeRouter,
     req,
     endpoint: "/api/trpc",
-    /**
-     * @link https://trpc.io/docs/v11/context
-     */
     createContext: createContext,
-    /**
-     * @link https://trpc.io/docs/v11/error-handling
-     */
     onError({ error }) {
       if (error.code === "INTERNAL_SERVER_ERROR") {
-        // send to bug reporting
         console.error("Something went wrong", error);
       }
     },

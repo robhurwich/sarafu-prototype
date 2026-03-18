@@ -8,6 +8,10 @@ import { caller } from "~/server/api/routers/_app";
 import { graphDB } from "~/server/db";
 
 export async function generateStaticParams() {
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    const { MOCK_VOUCHERS } = await import("~/mock/data");
+    return MOCK_VOUCHERS.map((v) => ({ address: v.voucher_address }));
+  }
   const vouchers = await graphDB
     .selectFrom("vouchers")
     .select("voucher_address")

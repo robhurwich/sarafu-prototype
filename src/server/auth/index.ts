@@ -11,6 +11,41 @@ import { cacheWithExpiry } from "~/utils/cache/cache";
 import { type SessionData, sessionOptions } from "./session";
 import { type AppSession } from "./types";
 
+// ─── Mock session path ────────────────────────────────────────────────────
+// When NEXT_PUBLIC_MOCK_MODE=true, resolve session from fixture data
+// without hitting the database or blockchain.
+
+async function getMockSession(
+  address: `0x${string}`,
+  chainId: number
+): Promise<AppSession | null> {
+  try {
+    const { getMockPersonaByAddress } = await import("~/mock/router");
+    const persona = getMockPersonaByAddress(address);
+    if (!persona) return null;
+    return {
+      address,
+      chainId,
+      user: {
+        id: persona.id,
+        account_id: persona.account_id,
+        given_names: persona.given_names,
+        family_name: persona.family_name,
+        gender: persona.gender,
+        year_of_birth: persona.year_of_birth,
+        location_name: persona.location_name,
+        geo: persona.geo,
+        role: persona.role,
+        default_voucher: persona.default_voucher,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Real session path ────────────────────────────────────────────────────
+
 async function _getSession(): Promise<AppSession | null> {
   const cookieStore = await cookies();
   const session = await getIronSession<SessionData>(
@@ -23,6 +58,11 @@ async function _getSession(): Promise<AppSession | null> {
   }
 
   const { address, chainId } = session;
+
+  // Mock mode: skip DB and blockchain
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    return getMockSession(address, chainId);
+  }
 
   try {
     return await cacheWithExpiry<AppSession>(

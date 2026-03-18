@@ -11,6 +11,10 @@ import { caller } from "~/server/api/routers/_app";
 import { PoolClientPage } from "./pool-client-page";
 
 export async function generateStaticParams() {
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    const { MOCK_POOLS } = await import("~/mock/data");
+    return MOCK_POOLS.map((p) => ({ address: p.contract_address }));
+  }
   const data = await getContractIndex(
     publicClient,
     env.NEXT_PUBLIC_SWAP_POOL_INDEX_ADDRESS

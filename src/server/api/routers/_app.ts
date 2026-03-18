@@ -3,6 +3,7 @@
  */
 import { createCallerFactory } from "@trpc/server/unstable-core-do-not-import";
 import { cache } from "react";
+import { mockAppRouter } from "~/mock/router";
 import { auth } from "~/server/auth";
 import type { Context } from "../context";
 import { router } from "../trpc";
@@ -53,4 +54,9 @@ const createCallerContext = cache(
   })
 );
 
-export const caller = createCallerFactory()(appRouter)(createCallerContext);
+const realCaller = createCallerFactory()(appRouter)(createCallerContext);
+const mockCaller = createCallerFactory()(mockAppRouter)(createCallerContext);
+
+// Server-side caller — uses mock data when NEXT_PUBLIC_MOCK_MODE=true
+export const caller =
+  process.env.NEXT_PUBLIC_MOCK_MODE === "true" ? mockCaller : realCaller;
