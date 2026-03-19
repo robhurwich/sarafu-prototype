@@ -349,6 +349,18 @@ const mockStatsRouter = router({
     totalTransactions: MOCK_STATS.totalTransactions,
     totalPools: MOCK_STATS.totalPools,
   })),
+
+  voucherStats: publicProcedure
+    .input(z.any().optional())
+    .query(() =>
+      MOCK_VOUCHERS.slice(0, 5).map((v) => ({
+        voucher_address: v.voucher_address,
+        symbol: v.symbol,
+        voucher_name: v.voucher_name,
+        transaction_count: v.transaction_count,
+        user_count: Math.floor(Math.random() * 50 + 10),
+      }))
+    ),
 });
 
 // ─── Transaction Router ───────────────────────────────────────────────────
@@ -374,6 +386,7 @@ const mockTransactionRouter = router({
 // ─── Products Router ──────────────────────────────────────────────────────
 
 const mockProductsRouter = router({
+  list: publicProcedure.input(z.any().optional()).query(() => MOCK_PRODUCTS),
   listAll: publicProcedure.input(z.any().optional()).query(() => MOCK_PRODUCTS),
 
   listByVoucher: publicProcedure
@@ -383,6 +396,10 @@ const mockProductsRouter = router({
         (p) => p.voucher_address.toLowerCase() === input.voucherAddress.toLowerCase()
       )
     ),
+
+  nearbyOffers: publicProcedure
+    .input(z.any().optional())
+    .query(() => MOCK_PRODUCTS.slice(0, 4)),
 
   create: authenticatedProcedure.input(z.any()).mutation(() => ({ id: 99 })),
   update: authenticatedProcedure.input(z.any()).mutation(() => true),
@@ -435,6 +452,14 @@ const mockReportRouter = router({
   update: authenticatedProcedure.input(z.any()).mutation(() => true),
 });
 
+// ─── ENS Router ───────────────────────────────────────────────────────────
+
+const mockEnsRouter = router({
+  getENS: publicProcedure
+    .input(z.any().optional())
+    .query(() => null),
+});
+
 // ─── Stub Routers (pass-through stubs for unused features) ───────────────
 
 const stubRouter = router({});
@@ -453,9 +478,9 @@ export const mockAppRouter = router({
   tags: mockTagsRouter,
   gas: mockGasRouter,
   report: mockReportRouter,
+  ens: mockEnsRouter,
   // stubs for features not needed in prototype
   checkout: stubRouter,
-  ens: stubRouter,
   staff: stubRouter,
   safe: stubRouter,
 });

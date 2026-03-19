@@ -1,9 +1,9 @@
 name: Run Tests
 
+# Disabled in sarafu-prototype — tests require real DB/API dependencies
+# that are mocked out in this prototype repo.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
