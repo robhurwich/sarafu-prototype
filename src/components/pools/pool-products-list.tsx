@@ -7,6 +7,7 @@ import {
   PackageIcon,
   SearchIcon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
@@ -14,7 +15,7 @@ import { ResponsiveModal } from "~/components/responsive-modal";
 import { useAuth } from "~/hooks/useAuth";
 import { trpc, type RouterOutputs } from "~/lib/trpc";
 import { type RouterOutput } from "~/server/api/root";
-import { formatNumber, truncateByDecimalPlace } from "~/utils/units/number";
+import { formatCurrencyValue } from "~/utils/units/number";
 import { fromRawPriceIndex } from "~/utils/units/pool";
 import { Button } from "../ui/button";
 import {
@@ -28,7 +29,11 @@ import { VoucherIcon } from "../voucher/voucher-icon";
 import { useVoucherSymbol } from "../voucher/voucher-name";
 import { SwapForm } from "./forms/swap-form";
 import { type SwapPool, type SwapPoolVoucher } from "./types";
-import { getHoldingInDefaultVoucherUnits, getTotalPurchasingPower } from "./utils";
+import {
+  MIN_SWAP_AMOUNT,
+  getHoldingInDefaultVoucherUnits,
+  getTotalPurchasingPower,
+} from "./utils";
 
 interface PoolProductsListProps {
   pool: SwapPool;
@@ -42,8 +47,6 @@ interface SelectedSwapProduct {
 }
 
 type Product = RouterOutput["products"]["list"][number];
-
-const MIN_SWAP_AMOUNT = 0.01;
 
 function OfferCard({
   product,
@@ -64,10 +67,12 @@ function OfferCard({
     >
       <div className="relative aspect-[4/3] w-full bg-muted/30 flex items-center justify-center">
         {product.image_url ? (
-          <img
+          <Image
             src={product.image_url}
             alt={product.commodity_name}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
           />
         ) : (
           <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
@@ -82,7 +87,7 @@ function OfferCard({
         )}
         {priceInDV !== undefined && priceInDV > MIN_SWAP_AMOUNT && (
           <p className="text-xs font-semibold tabular-nums text-green-600 mt-1">
-            {truncateByDecimalPlace(priceInDV, 2)} {defaultVoucherSymbol ?? ""}
+            {formatCurrencyValue(priceInDV, defaultVoucherSymbol)}
           </p>
         )}
       </div>
@@ -123,7 +128,7 @@ function VoucherOfferGroup({
     ? getTotalPurchasingPower(voucherAddress, voucherDetail, allVoucherDetails)
     : poolBalanceInDV;
 
-  const holding = formatNumber(availableToSwap, { maxDecimalDigits: 0 });
+  const holding = formatCurrencyValue(availableToSwap, defaultVoucherSymbol, { maximumFractionDigits: 0 });
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -153,7 +158,7 @@ function VoucherOfferGroup({
           <div className="flex items-center justify-between px-4 pb-3 pl-[4.25rem]">
             {availableToSwap > MIN_SWAP_AMOUNT ? (
               <span className="text-xs font-medium text-green-600">
-                {holding} {defaultVoucherSymbol ?? ""} Available
+                {holding} Available
               </span>
             ) : (
               <span />
@@ -226,10 +231,12 @@ function VoucherOfferGroup({
           <div className="space-y-4">
             <div className="relative aspect-[4/3] w-full bg-muted/30 rounded-md overflow-hidden flex items-center justify-center">
               {selectedProduct.image_url ? (
-                <img
+                <Image
                   src={selectedProduct.image_url}
                   alt={selectedProduct.commodity_name}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
               ) : (
                 <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
@@ -242,11 +249,10 @@ function VoucherOfferGroup({
                 </span>
                 {selectedProduct.price && priceRate > 0 && (
                   <span className="text-sm font-semibold tabular-nums">
-                    {truncateByDecimalPlace(
+                    {formatCurrencyValue(
                       Number(selectedProduct.price) * priceRate,
-                      2,
-                    )}{" "}
-                    {defaultVoucherSymbol ?? ""}
+                      defaultVoucherSymbol,
+                    )}
                   </span>
                 )}
               </div>
@@ -278,9 +284,7 @@ function VoucherOfferGroup({
 export function PoolProductsList({ pool, metadata }: PoolProductsListProps) {
   const auth = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const defaultVoucherSymbol = useVoucherSymbol({
-    address: metadata?.default_voucher,
-  });
+  const defaultVoucherSymbol = metadata?.unit_of_account;
   const [isSwapOpen, setIsSwapOpen] = useState(false);
   const [selectedSwapProduct, setSelectedSwapProduct] =
     useState<SelectedSwapProduct | null>(null);
@@ -411,7 +415,7 @@ export function PoolProductsList({ pool, metadata }: PoolProductsListProps) {
             voucherAddress={voucherAddress}
             voucherDetail={voucherDetailMap.get(voucherAddress.toLowerCase())}
             allVoucherDetails={voucherDetailMap}
-            defaultVoucherSymbol={defaultVoucherSymbol.data}
+            defaultVoucherSymbol={defaultVoucherSymbol}
             products={voucherProducts}
             onSwapClick={handleVoucherSwapClick}
           />
