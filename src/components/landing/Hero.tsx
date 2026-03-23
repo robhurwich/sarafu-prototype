@@ -82,7 +82,7 @@ export function Hero({
       description: "I want to send, swap or redeem my vouchers",
       href: "#voucher-users",
       titleColor: "text-[#9CA332]",
-      iconBg: "bg-[#8A9129]",
+      iconBg: "bg-[#9CA332]",
     },
     {
       id: "supporters",

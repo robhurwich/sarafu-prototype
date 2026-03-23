@@ -137,9 +137,11 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {data.navMain.map((item) => (
+              {data.navMain.map((item) => {
+                const isExternal = item.url.startsWith("http");
+                return (
                 <SidebarMenuItem key={item.title}>
-                  <Link href={item.url}>
+                  <Link href={item.url} {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                     <SidebarMenuButton
                       tooltip={item.title}
                       isActive={false}
@@ -150,7 +152,8 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
-              ))}
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

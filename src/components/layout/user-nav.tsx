@@ -83,12 +83,11 @@ export function UserNav() {
                 if (!mounted || !auth?.account || !chain) {
                   return (
                     <Button
-                      variant="ghost"
                       disabled={
                         connectModalOpen || authenticationStatus === "loading"
                       }
                       onClick={() => openConnectModal && openConnectModal()}
-                      className="rounded-full w-full"
+                      className="rounded-full w-full bg-[#9CA332] hover:bg-[#8A9129] text-white"
                     >
                       {authenticationStatus === "loading" ? (
                         <Loading />
