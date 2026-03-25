@@ -49,14 +49,9 @@ const data = {
       icon: BarChart3,
     },
     {
-      title: "Map",
-      url: "/map",
-      icon: Map,
-    },
-    {
-      title: "Visualizations",
-      url: "https://viz.sarafu.network",
-      icon: Eye,
+      title: "Pools",
+      url: "/pools",
+      icon: Icons.pools,
     },
     {
       title: "Vouchers",
@@ -69,14 +64,19 @@ const data = {
     //   icon: ShoppingCart,
     // },
     {
-      title: "Pools",
-      url: "/pools",
-      icon: Icons.pools,
+      title: "Map",
+      url: "/map",
+      icon: Map,
     },
     {
       title: "Reports",
       url: "/reports",
       icon: FileText,
+    },
+    {
+      title: "Visualizations",
+      url: "https://viz.sarafu.network",
+      icon: Eye,
     },
   ],
   navAccount: [
