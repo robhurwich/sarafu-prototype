@@ -64,7 +64,6 @@ export function Hero({
       description: "I want to create a commitment pool",
       href: "#stewards",
       titleColor: "text-[#004844]",
-      iconBg: "bg-[#004844]",
     },
     {
       id: "service-providers",
@@ -73,7 +72,6 @@ export function Hero({
       description: "I want to create vouchers to offer my goods or services",
       href: "#service-providers",
       titleColor: "text-[#8A9129]",
-      iconBg: "bg-[#603511]",
     },
     {
       id: "voucher-users",
@@ -82,7 +80,6 @@ export function Hero({
       description: "I want to send, swap or redeem my vouchers",
       href: "#voucher-users",
       titleColor: "text-[#9CA332]",
-      iconBg: "bg-[#9CA332]",
     },
     {
       id: "supporters",
@@ -91,7 +88,6 @@ export function Hero({
       description: "I want to support a commitment pool",
       href: "#seeders",
       titleColor: "text-[#E86A2C]",
-      iconBg: "bg-[#E86A2C]",
     },
   ];
 
@@ -189,7 +185,7 @@ export function Hero({
                   <Card className="h-full border-border/50 hover:shadow-lg hover:border-[#004844]/20 transition-all duration-200 cursor-pointer group">
                     <CardContent className="p-4 text-center pt-[14px] pr-[14px] pb-[5px] pl-[14px]">
                       <div
-                        className={`w-20 h-20 ${role.iconBg} rounded-xl overflow-hidden flex items-center justify-center mb-4 mx-auto`}
+                        className="w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center mb-4 mx-auto"
                       >
                         <Image
                           src={role.icon}
