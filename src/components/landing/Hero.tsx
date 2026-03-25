@@ -189,14 +189,14 @@ export function Hero({
                   <Card className="h-full border-border/50 hover:shadow-lg hover:border-[#004844]/20 transition-all duration-200 cursor-pointer group">
                     <CardContent className="p-4 text-center pt-[14px] pr-[14px] pb-[5px] pl-[14px]">
                       <div
-                        className={`w-20 h-20 ${role.iconBg} rounded-xl flex items-center justify-center mb-4 mx-auto`}
+                        className={`w-20 h-20 ${role.iconBg} rounded-xl overflow-hidden flex items-center justify-center mb-4 mx-auto`}
                       >
                         <Image
                           src={role.icon}
                           alt={`${role.title} icon`}
-                          width={64}
-                          height={64}
-                          className="w-16 h-16 object-contain"
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-cover"
                         />
                       </div>
                       <h3 className="font-semibold text-base lg:text-lg mb-2 text-[#8A9129] transition-colors">
