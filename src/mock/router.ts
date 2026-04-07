@@ -174,10 +174,17 @@ const mockPoolRouter = router({
     .query(() => MOCK_TRANSACTIONS.slice(0, 5)),
 
   statistics: publicProcedure
-    .input(z.any())
+    .input(
+      z.object({
+        addresses: z.array(z.string()).optional(),
+        dateRange: z
+          .object({ from: z.date(), to: z.date() })
+          .optional(),
+      }).passthrough()
+    )
     .query(({ input }) => {
       // Dashboard calls with { addresses: [...], dateRange } — return per-pool stats array
-      if (input?.addresses) {
+      if (input.addresses) {
         return MOCK_POOLS.map((p) => ({
           pool_address: p.contract_address,
           total_swaps: p.swap_count,
