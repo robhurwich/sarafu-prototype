@@ -170,8 +170,23 @@ const mockPoolRouter = router({
     .query(() => []),
 
   transactions: publicProcedure
-    .input(z.object({ poolAddress: z.string() }).passthrough())
-    .query(() => MOCK_TRANSACTIONS.slice(0, 5)),
+    .input(z.object({ address: z.string() }).passthrough())
+    .query(() => ({
+      items: MOCK_TRANSACTIONS.slice(0, 5),
+      nextCursor: null,
+    })),
+
+  tokenDistribution: publicProcedure
+    .input(z.any())
+    .query(() =>
+      MOCK_VOUCHERS.slice(0, 3).map((v) => ({
+        token_address: v.voucher_address,
+        token_name: v.voucher_name,
+        symbol: v.symbol,
+        balance: Math.floor(Math.random() * 10000 + 1000),
+        percentage: Math.floor(Math.random() * 40 + 10),
+      }))
+    ),
 
   statistics: publicProcedure
     .input(
