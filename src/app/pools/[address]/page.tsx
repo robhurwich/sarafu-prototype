@@ -32,8 +32,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
   const pool_address = getAddress(params.address);
 
-  const poolDetails = await getSwapPool(publicClient, pool_address);
   const poolData = await caller.pool.get(pool_address);
+
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    return {
+      title: poolData?.pool_name ?? "Pool",
+      description: poolData?.swap_pool_description ?? "",
+    };
+  }
+
+  const poolDetails = await getSwapPool(publicClient, pool_address);
 
   return {
     title: poolDetails?.name,

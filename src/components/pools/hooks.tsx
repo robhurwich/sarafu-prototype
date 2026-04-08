@@ -50,14 +50,26 @@ export const useMultipleSwapDetails = (
 export const useContractIndex = (address?: `0x${string}`) => {
   const config = useConfig();
   const client = usePublicClient({ config });
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
 
   return useQuery({
     queryKey: ["contractIndex", address],
     queryFn: () => {
+      if (isMockMode) {
+        // Return mock pool addresses so dashboard pools tab renders
+        return {
+          contractAddresses: [
+            "0xd4c2c1028b21e2777c09bfb1f4cc89b3c5576f9e",
+            "0xe5d3d2139c22e3857c0bfa2d09b4c7a6587e2a1f",
+            "0xf6e4e3240d33f4968d1cba3e0a5b8d7b698f3b20",
+          ] as `0x${string}`[],
+          entryCount: BigInt(3),
+        };
+      }
       if (!client) throw new Error("Client not available");
       return getContractIndex(client, address!);
     },
-    enabled: !!address && !!client,
+    enabled: isMockMode || (!!address && !!client),
     staleTime: 60_000,
   });
 };

@@ -170,16 +170,51 @@ const mockPoolRouter = router({
     .query(() => []),
 
   transactions: publicProcedure
-    .input(z.object({ poolAddress: z.string() }).passthrough())
-    .query(() => MOCK_TRANSACTIONS.slice(0, 5)),
+    .input(z.object({ address: z.string() }).passthrough())
+    .query(() => ({
+      items: MOCK_TRANSACTIONS.slice(0, 5),
+      nextCursor: null,
+    })),
+
+  tokenDistribution: publicProcedure
+    .input(z.any())
+    .query(() =>
+      MOCK_VOUCHERS.slice(0, 3).map((v) => ({
+        token_address: v.voucher_address,
+        token_name: v.voucher_name,
+        symbol: v.symbol,
+        balance: Math.floor(Math.random() * 10000 + 1000),
+        percentage: Math.floor(Math.random() * 40 + 10),
+      }))
+    ),
 
   statistics: publicProcedure
-    .input(z.object({ poolAddress: z.string() }).passthrough())
-    .query(() => ({
-      totalSwaps: 321,
-      totalVouchers: 3,
-      totalMembers: 42,
-    })),
+    .input(
+      z.object({
+        addresses: z.array(z.string()).optional(),
+        dateRange: z
+          .object({ from: z.date(), to: z.date() })
+          .optional(),
+      }).passthrough()
+    )
+    .query(({ input }) => {
+      // Dashboard calls with { addresses: [...], dateRange } — return per-pool stats array
+      if (input.addresses) {
+        return MOCK_POOLS.map((p) => ({
+          pool_address: p.contract_address,
+          total_swaps: p.swap_count,
+          total_deposits: Math.floor(Math.random() * 50 + 10),
+          unique_swappers: Math.floor(Math.random() * 30 + 5),
+          unique_depositors: Math.floor(Math.random() * 15 + 3),
+        }));
+      }
+      // Single pool detail calls
+      return {
+        totalSwaps: 321,
+        totalVouchers: 3,
+        totalMembers: 42,
+      };
+    }),
 
   swapVolumeOverTime: publicProcedure
     .input(z.any())
@@ -323,7 +358,18 @@ const mockStatsRouter = router({
 
   statsPerVoucher: publicProcedure
     .input(z.any())
-    .query(() => []),
+    .query(() =>
+      MOCK_VOUCHERS.map((v) => ({
+        voucher_address: v.voucher_address,
+        symbol: v.symbol,
+        voucher_name: v.voucher_name,
+        this_period_total: Math.floor(Math.random() * 200 + 20),
+        last_period_total: Math.floor(Math.random() * 150 + 10),
+        unique_accounts_this_period: Math.floor(Math.random() * 40 + 5),
+        unique_accounts_last_period: Math.floor(Math.random() * 30 + 3),
+        total_reports: Math.floor(Math.random() * 15),
+      }))
+    ),
 
   userCountPerDay: publicProcedure
     .input(z.any().optional())
@@ -352,15 +398,16 @@ const mockStatsRouter = router({
 
   voucherStats: publicProcedure
     .input(z.any().optional())
-    .query(() =>
-      MOCK_VOUCHERS.slice(0, 5).map((v) => ({
-        voucher_address: v.voucher_address,
-        symbol: v.symbol,
-        voucher_name: v.voucher_name,
-        transaction_count: v.transaction_count,
-        user_count: Math.floor(Math.random() * 50 + 10),
-      }))
-    ),
+    .query(() => ({
+      accounts: {
+        total: 3540,
+        delta: 42,
+      },
+      transactions: {
+        total: 271144,
+        delta: 187,
+      },
+    })),
 });
 
 // ─── Transaction Router ───────────────────────────────────────────────────
@@ -450,6 +497,19 @@ const mockReportRouter = router({
     .query(() => null),
   create: authenticatedProcedure.input(z.any()).mutation(() => ({ id: 1 })),
   update: authenticatedProcedure.input(z.any()).mutation(() => true),
+  getStatsByTag: publicProcedure
+    .input(z.any())
+    .query(() => ({
+      reportCount: 87,
+      stats: [
+        { tag: "food", count: 28 },
+        { tag: "water", count: 19 },
+        { tag: "education", count: 15 },
+        { tag: "repairs", count: 12 },
+        { tag: "technology", count: 8 },
+        { tag: "clothing", count: 5 },
+      ],
+    })),
 });
 
 // ─── ENS Router ───────────────────────────────────────────────────────────

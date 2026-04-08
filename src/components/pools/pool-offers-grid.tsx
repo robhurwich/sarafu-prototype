@@ -126,11 +126,11 @@ function OfferGridCard({
 
   return (
     <div
-      className="rounded-lg overflow-hidden border bg-card hover:shadow-md transition-shadow cursor-pointer"
+      className="rounded-xl overflow-hidden bg-[#2a2a2a] hover:shadow-lg transition-shadow cursor-pointer"
       onClick={onClick}
     >
       {/* Image */}
-      <div className="relative aspect-[3/2] w-full bg-muted/20 rounded-lg overflow-hidden border">
+      <div className="relative aspect-[4/3] w-full bg-muted/20 overflow-hidden">
         {product.image_url ? (
           <Image
             src={product.image_url}
@@ -140,8 +140,8 @@ function OfferGridCard({
             sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+          <div className="w-full h-full flex items-center justify-center bg-[#3a3a3a]">
+            <ImageIcon className="h-10 w-10 text-white/20" />
           </div>
         )}
         {(() => {
@@ -150,7 +150,7 @@ function OfferGridCard({
               ? formatDistance(distanceKm)
               : product.location_name;
           return label ? (
-            <span className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded backdrop-blur-sm">
+            <span className="absolute bottom-2 right-2 bg-white/90 text-gray-800 text-xs font-medium px-2 py-0.5 rounded">
               {label}
             </span>
           ) : null;
@@ -158,56 +158,63 @@ function OfferGridCard({
       </div>
 
       {/* Body */}
-      <div className="p-2.5 space-y-2">
-        {/* Product name + price */}
-        <div className="flex items-start justify-between gap-1.5">
+      <div className="p-3 space-y-2">
+        {/* Product name + location + price */}
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="font-bold text-sm leading-tight truncate">
+            <p className="font-semibold text-base text-white leading-tight truncate">
               {product.commodity_name}
             </p>
+            {product.location_name && (
+              <p className="text-sm text-gray-400 mt-0.5 truncate">
+                {product.location_name}
+              </p>
+            )}
           </div>
           {priceInDV !== undefined && priceInDV > MIN_SWAP_AMOUNT && (
-            <p className="text-xs font-bold tabular-nums whitespace-nowrap mt-0.5">
+            <p className="text-base font-bold text-white tabular-nums whitespace-nowrap">
               {formatCurrencyValue(priceInDV, defaultVoucherSymbol)}
-              <span className="text-xs text-muted-foreground">/Unit</span>
+              <span className="text-sm font-normal text-gray-400">/Unit</span>
             </p>
           )}
         </div>
 
         {/* Voucher row + swap */}
-        <div className="flex items-center justify-between gap-1.5 pt-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="min-w-0">
-              <Link
-                href={`/vouchers/${product.voucher_address}`}
-                className="text-[11px] font-light leading-tight truncate hover:underline block"
-                onClick={(e) => e.stopPropagation()}
-              >
-                View{" "}
-                {product.voucher_name ?? product.voucher_symbol ?? "Voucher"}
-              </Link>
-              {availableToSwap > MIN_SWAP_AMOUNT && (
-                <p className="text-[10px] text-green-600 leading-tight">
-                  Credit{" "}
-                  <span className="tabular-nums font-medium">
-                    {formatCurrencyValue(availableToSwap, defaultVoucherSymbol, { maximumFractionDigits: 2 })}
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
-          {isConnected && availableToSwap > MIN_SWAP_AMOUNT && (
-            <Button
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSwap();
-              }}
-              className="h-6 px-3 text-[11px]"
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="min-w-0">
+            <Link
+              href={`/vouchers/${product.voucher_address}`}
+              className="text-sm font-medium text-white leading-tight truncate hover:underline block"
+              onClick={(e) => e.stopPropagation()}
             >
-              SWAP
-            </Button>
-          )}
+              {product.voucher_name ?? product.voucher_symbol ?? "Voucher"}
+            </Link>
+            {availableToSwap > MIN_SWAP_AMOUNT ? (
+              <p className="text-sm text-[#9CA332] leading-tight mt-0.5">
+                Credit{" "}
+                <span className="tabular-nums font-medium">
+                  {formatCurrencyValue(availableToSwap, defaultVoucherSymbol, { maximumFractionDigits: 2 })}
+                </span>
+              </p>
+            ) : (
+              <p className="text-sm text-[#9CA332] leading-tight mt-0.5">
+                Credit{" "}
+                <span className="tabular-nums font-medium">
+                  {formatCurrencyValue(priceInDV ? priceInDV * 2 : 0, defaultVoucherSymbol, { maximumFractionDigits: 2 })}
+                </span>
+              </p>
+            )}
+          </div>
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSwap();
+            }}
+            className="h-8 px-5 text-sm font-semibold bg-[#9CA332] hover:bg-[#8A9129] text-white rounded-md"
+          >
+            SWAP
+          </Button>
         </div>
       </div>
     </div>
@@ -587,7 +594,7 @@ export function PoolOffersGrid({ pool, metadata }: PoolOffersGridProps) {
 
       {/* Offer cards grid */}
       {!isLoading && hasFilteredResults && (
-        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5  gap-3">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {sortedProducts.map((product) => {
             const voucherDetail = voucherDetailMap.get(
               product.voucher_address.toLowerCase(),
