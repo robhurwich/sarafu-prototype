@@ -383,15 +383,16 @@ const mockStatsRouter = router({
 
   voucherStats: publicProcedure
     .input(z.any().optional())
-    .query(() =>
-      MOCK_VOUCHERS.slice(0, 5).map((v) => ({
-        voucher_address: v.voucher_address,
-        symbol: v.symbol,
-        voucher_name: v.voucher_name,
-        transaction_count: v.transaction_count,
-        user_count: Math.floor(Math.random() * 50 + 10),
-      }))
-    ),
+    .query(() => ({
+      accounts: {
+        total: 3540,
+        delta: 42,
+      },
+      transactions: {
+        total: 271144,
+        delta: 187,
+      },
+    })),
 });
 
 // ─── Transaction Router ───────────────────────────────────────────────────
