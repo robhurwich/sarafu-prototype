@@ -1,10 +1,10 @@
 import {
-  parseGwei,
   type Address,
   type Chain,
   type PublicClient,
   type Transport,
 } from "viem";
+import { defaultReceiptOptions } from "~/config/viem.config.server";
 import { getWriterWalletClient } from "../writer";
 import { limiterAbi, limiterBytecode } from "./contract";
 
@@ -25,12 +25,10 @@ export class Limiter<t extends Transport, c extends Chain> {
       abi: limiterAbi,
       bytecode: limiterBytecode,
       gas: 1_000_000n,
-      maxFeePerGas: parseGwei("27"),
-      maxPriorityFeePerGas: 5n,
     });
     const receipt = await publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
     if (receipt.status !== "success" || !receipt.contractAddress) {
       throw new Error("Failed to deploy limiter");
@@ -65,7 +63,7 @@ export class Limiter<t extends Transport, c extends Chain> {
     });
     await this.publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
   }
 
@@ -83,7 +81,7 @@ export class Limiter<t extends Transport, c extends Chain> {
     });
     await this.publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
   }
 
@@ -106,7 +104,7 @@ export class Limiter<t extends Transport, c extends Chain> {
     });
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
     return receipt.status === "success";
   }

@@ -1,7 +1,6 @@
 import {
   type Chain,
   hexToNumber,
-  parseGwei,
   type PublicClient,
   toHex,
   type Transport,
@@ -10,6 +9,7 @@ import {
   tokenIndexABI,
   tokenIndexBytecode,
 } from "~/contracts/erc20-token-index/contract";
+import { defaultReceiptOptions } from "~/config/viem.config.server";
 import { getWriterWalletClient } from "../writer";
 
 export class TokenIndex<t extends Transport, c extends Chain> {
@@ -38,12 +38,10 @@ export class TokenIndex<t extends Transport, c extends Chain> {
       abi: tokenIndexABI,
       bytecode: tokenIndexBytecode,
       gas: 2_500_000n,
-      maxFeePerGas: parseGwei("27"),
-      maxPriorityFeePerGas: 5n,
     });
     const receipt = await publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
     if (receipt.status !== "success" || !receipt.contractAddress) {
       throw new Error("Failed to deploy token index");
@@ -61,7 +59,7 @@ export class TokenIndex<t extends Transport, c extends Chain> {
     console.debug("addVoucher tx: ", hash);
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
     return receipt.status === "success";
   }
@@ -137,7 +135,7 @@ export class TokenIndex<t extends Transport, c extends Chain> {
     });
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
     return receipt.status === "success";
   }
@@ -150,7 +148,7 @@ export class TokenIndex<t extends Transport, c extends Chain> {
     });
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
     return receipt.status === "success";
   }
@@ -163,7 +161,7 @@ export class TokenIndex<t extends Transport, c extends Chain> {
     });
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash,
-      confirmations: 2,
+      ...defaultReceiptOptions,
     });
     return receipt.status === "success";
   }

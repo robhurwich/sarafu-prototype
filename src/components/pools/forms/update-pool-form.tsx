@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import AreYouSureDialog from "~/components/dialogs/are-you-sure";
-import { ImageUploadField } from "~/components/forms/fields/image-upload-field";
 import { InputField } from "~/components/forms/fields/input-field";
 import { TagsField } from "~/components/forms/fields/tags-field";
 import { TextAreaField } from "~/components/forms/fields/textarea-field";
@@ -13,8 +12,8 @@ import { UoaField } from "~/components/forms/fields/uoa-field";
 import { Loading } from "~/components/loading";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
-import { Authorization } from "~/hooks/useAuth";
-import { useIsContractOwner } from "~/hooks/useIsOwner";
+import { Authorization } from "~/hooks/use-auth";
+import { useIsContractOwner } from "~/hooks/use-is-owner";
 import { trpc } from "~/lib/trpc";
 import { addressSchema } from "~/utils/zod";
 
@@ -92,14 +91,6 @@ export function UpdatePoolForm({
           placeholder=""
           rows={6}
         />
-        <ImageUploadField
-          form={form}
-          folder="pools"
-          name="banner_url"
-          aspectRatio={16 / 9}
-          label="Pool Image"
-          placeholder="Upload banner image"
-        />
         <UoaField
           form={form}
           name="unit_of_account"
@@ -111,7 +102,7 @@ export function UpdatePoolForm({
           <Button
             type="submit"
             disabled={update.isPending || remove.isPending}
-            className="w-full font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            className="w-full font-bold py-2 px-4 rounded focus:outline-hidden focus:shadow-outline"
           >
             {update.isPending || remove.isPending ? <Loading /> : "Update"}
           </Button>

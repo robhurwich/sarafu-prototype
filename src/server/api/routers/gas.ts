@@ -1,8 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { isAddress } from "viem";
 import { z } from "zod";
-import { publicClient } from "~/config/viem.config.server";
+import {
+  defaultReceiptOptions,
+  publicClient,
+} from "~/config/viem.config.server";
 import { EthFaucet } from "~/contracts/eth-faucet";
+import { withWriterLock } from "~/contracts/writer";
+import { env } from "~/env";
 import { router, staffProcedure } from "~/server/api/trpc";
 import { GasGiftStatus } from "~/server/enums";
 import { redis } from "~/utils/cache/kv";
@@ -24,7 +29,13 @@ export const gasRouter = router({
       const accountsRegistry = await ethFaucet.registry();
       const isRegistered = await accountsRegistry.isActive(input.address);
       if (account.gas_gift_status !== GasGiftStatus.APPROVED && isRegistered) {
-        await accountsRegistry.remove(input.address);
+        const hash = await withWriterLock(() =>
+          accountsRegistry.submitRemove(input.address)
+        );
+        await publicClient.waitForTransactionReceipt({
+          hash,
+          ...defaultReceiptOptions,
+        });
       }
       return account.gas_gift_status as keyof typeof GasGiftStatus;
     }),
@@ -47,51 +58,37 @@ export const gasRouter = router({
         .where("blockchain_address", "=", input.address)
         .select(["id", "gas_gift_status"])
         .executeTakeFirstOrThrow();
-      const ethFaucet = new EthFaucet(publicClient);
-      const registry = await ethFaucet.registry();
-      const isRegistered = await registry.isActive(input.address);
-      if (!isRegistered) {
-        const transactionReceipt = await registry.add(input.address);
-        if (transactionReceipt.status === "success") {
-          await ctx.graphDB
-            .updateTable("accounts")
-            .set({
-              gas_gift_status: GasGiftStatus.APPROVED,
-              gas_approver: approver_id,
-            })
-            .where("id", "=", account.id)
-            .execute();
-          try {
-            await ethFaucet.giveTo(input.address);
-          } catch (error) {
-            console.error(error);
-          }
-          await redis.del(`auth:session:${input.address}`);
-          return {
-            isRegistered: true,
-            message: "Address registered successfully.",
-          };
-        } else {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `Failed to register address. TX # ${transactionReceipt.transactionHash}`,
-          });
-        }
-      } else {
-        await ctx.graphDB
-          .updateTable("accounts")
-          .set({
-            gas_gift_status: GasGiftStatus.APPROVED,
-            gas_approver: approver_id,
-          })
-          .where("id", "=", account.id)
-          .execute();
-        await redis.del(`auth:session:${input.address}`);
-        return {
-          isRegistered: true,
-          message: "Address already registered, approval status updated.",
-        };
+
+      const response = await fetch(`${env.GAS_API_URL}/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": env.GAS_API_KEY,
+        },
+        body: JSON.stringify({ address: input.address }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Gas approval API error: ${response.status} ${errorText}`,
+        });
       }
+
+      await ctx.graphDB
+        .updateTable("accounts")
+        .set({
+          gas_gift_status: GasGiftStatus.APPROVED,
+          gas_approver: approver_id,
+        })
+        .where("id", "=", account.id)
+        .execute();
+      await redis.del(`auth:session:${input.address}`);
+      return {
+        isRegistered: true,
+        message: "Address approved successfully.",
+      };
     }),
   reject: staffProcedure
     .input(
@@ -117,7 +114,12 @@ export const gasRouter = router({
       const registry = await ethFaucet.registry();
       const isRegistered = await registry.isActive(input.address);
       if (isRegistered) {
-        const transactionReceipt = await registry.remove(input.address);
+        const removeHash = await withWriterLock(() =>
+          registry.submitRemove(input.address)
+        );
+        const transactionReceipt = await publicClient.waitForTransactionReceipt(
+          { hash: removeHash, ...defaultReceiptOptions }
+        );
         if (transactionReceipt.status === "reverted") {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",

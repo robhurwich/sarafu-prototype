@@ -4,8 +4,9 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { publicClient } from "~/config/viem.config.server";
 import { EthFaucet } from "~/contracts/eth-faucet";
+import { withWriterLock } from "~/contracts/writer";
 import { UserModel } from "~/server/api/models/user";
-import { graphDB } from "~/server/db";
+import { federatedDB, graphDB } from "~/server/db";
 import { GasGiftStatus } from "~/server/enums";
 import { cacheWithExpiry } from "~/utils/cache/cache";
 import { type SessionData, sessionOptions } from "./session";
@@ -69,7 +70,7 @@ async function _getSession(): Promise<AppSession | null> {
       `auth:session:${address}`,
       60,
       async () => {
-        const userModel = new UserModel(graphDB);
+        const userModel = new UserModel({ graphDB, federatedDB });
         const userCheck = await userModel.findUserByAddress(address);
         let userId = userCheck?.id;
         if (!userId) {
@@ -85,7 +86,9 @@ async function _getSession(): Promise<AppSession | null> {
             await ethFaucet.canRequest(address);
           if (canRequest) {
             try {
-              await ethFaucet.giveTo(address);
+              await withWriterLock(() =>
+                ethFaucet.submitGiveTo(address)
+              );
             } catch (error) {
               Sentry.captureException(error, {
                 tags: { component: "auth", action: "gas-faucet" },
@@ -108,6 +111,7 @@ async function _getSession(): Promise<AppSession | null> {
             given_names: info.given_names,
             location_name: info.location_name,
             year_of_birth: info.year_of_birth,
+            onboarding_completed: info.onboarding_completed ?? false,
             role: info.role,
             account_id: info.account_id,
           },

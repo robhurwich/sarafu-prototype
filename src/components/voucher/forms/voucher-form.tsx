@@ -1,12 +1,10 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-// import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import { z } from "zod";
 import AreYouSureDialog from "~/components/dialogs/are-you-sure";
-import { ImageUploadField } from "~/components/forms/fields/image-upload-field";
 import { InputField } from "~/components/forms/fields/input-field";
 import { MapField } from "~/components/forms/fields/map-field";
 import { TextAreaField } from "~/components/forms/fields/textarea-field";
@@ -14,8 +12,8 @@ import { UoaField } from "~/components/forms/fields/uoa-field";
 import { Loading } from "~/components/loading";
 import { Alert } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import { useAuth } from "~/hooks/useAuth";
-import { useIsContractOwner } from "~/hooks/useIsOwner";
+import { useAuth } from "~/hooks/use-auth";
+import { useIsContractOwner } from "~/hooks/use-is-owner";
 import { trpc } from "~/lib/trpc";
 import { type RouterOutput } from "~/server/api/root";
 import { hasPermission } from "~/utils/permissions";
@@ -158,31 +156,20 @@ const VoucherForm = ({
         className="p-6 bg-white shadow-lg rounded-lg space-y-6"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ImageUploadField
+          <InputField
             form={form}
-            name="iconUrl"
-            label="Icon"
-            folder="voucher"
-            aspectRatio={1}
-            className="size-40 mx-auto"
-            circularCrop={true}
+            name="voucherWebsite"
+            label="Website"
+            placeholder="http://example.com"
+            className="w-full"
           />
-          <div>
-            <InputField
-              form={form}
-              name="voucherWebsite"
-              label="Website"
-              placeholder="http://example.com"
-              className="w-full"
-            />
-            <InputField
-              form={form}
-              name="voucherEmail"
-              label="Email"
-              placeholder="email@example.com"
-              className="w-full"
-            />
-          </div>
+          <InputField
+            form={form}
+            name="voucherEmail"
+            label="Email"
+            placeholder="email@example.com"
+            className="w-full"
+          />
         </div>
 
         <TextAreaField
@@ -209,15 +196,6 @@ const VoucherForm = ({
             className="w-full"
           />
         </div>
-        <ImageUploadField
-          form={form}
-          name="bannerUrl"
-          label="Banner"
-          placeholder=""
-          folder="voucher"
-          className="w-full md:w-2/3 mx-auto"
-          aspectRatio={16 / 9}
-        />
         <MapField
           form={form}
           name="geo"
@@ -230,7 +208,7 @@ const VoucherForm = ({
             <Button
               type="submit"
               disabled={isPending}
-              className="w-full font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="w-full font-bold py-2 px-4 rounded focus:outline-hidden focus:shadow-outline"
             >
               {isPending ? <Loading /> : "Save Changes"}
             </Button>
@@ -238,7 +216,7 @@ const VoucherForm = ({
             <Button
               type="submit"
               disabled={isPending || !canAdd}
-              className="w-full font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="w-full font-bold py-2 px-4 rounded focus:outline-hidden focus:shadow-outline"
             >
               {isPending ? <Loading /> : "Add Voucher"}
             </Button>

@@ -1,4 +1,5 @@
 import { type Chain, type PublicClient, type Transport } from "viem";
+import { defaultReceiptOptions } from "~/config/viem.config.server";
 import { abi } from "~/contracts/eth-faucet/contract";
 import { env } from "~/env";
 import { EthAccountsIndex } from "../eth-accounts-index";
@@ -89,7 +90,7 @@ export class EthFaucet<t extends Transport, c extends Chain> {
       functionName: "tokenAmount",
     });
   }
-  async giveTo(recipientAddress: `0x${string}`) {
+  async submitGiveTo(recipientAddress: `0x${string}`) {
     const walletClient = getWriterWalletClient();
     const { request } = await this.publicClient.simulateContract({
       account: walletClient.account,
@@ -100,5 +101,13 @@ export class EthFaucet<t extends Transport, c extends Chain> {
     });
     // @ts-expect-error No Idea
     return walletClient.writeContract(request);
+  }
+
+  async giveTo(recipientAddress: `0x${string}`) {
+    const hash = await this.submitGiveTo(recipientAddress);
+    return this.publicClient.waitForTransactionReceipt({
+      hash,
+      ...defaultReceiptOptions,
+    });
   }
 }

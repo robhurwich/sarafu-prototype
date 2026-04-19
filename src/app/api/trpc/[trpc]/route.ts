@@ -13,6 +13,10 @@ const handler = (req: Request) =>
     router: activeRouter,
     req,
     endpoint: "/api/trpc",
+    allowMethodOverride: true,
+    /**
+     * @link https://trpc.io/docs/v11/context
+     */
     createContext: createContext,
     onError({ error }) {
       if (error.code === "INTERNAL_SERVER_ERROR") {

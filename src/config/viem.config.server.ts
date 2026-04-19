@@ -2,10 +2,9 @@ import { createPublicClient, fallback, http } from "viem";
 import { celo } from "wagmi/chains";
 
 export const defaultReceiptOptions = {
-  retryCount: 10,
-  confirmations: 5,
-  retryDelay: 1000,
-  pollingInterval: 1000,
+  confirmations: 1,
+  pollingInterval: 2_000,
+  timeout: 60_000,
 };
 // Get projectId from https://cloud.reown.com
 export const projectId = "26d03a81230d2bcd268e0434bec65f3a";

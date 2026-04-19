@@ -1,8 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { isAddress } from "viem";
 import { z } from "zod";
-import { publicClient } from "~/config/viem.config.server";
+import {
+  defaultReceiptOptions,
+  publicClient,
+} from "~/config/viem.config.server";
 import { EthFaucet } from "~/contracts/eth-faucet";
+import { withWriterLock } from "~/contracts/writer";
 import { registerENS } from "~/lib/sarafu/resolver";
 import { router, staffProcedure } from "~/server/api/trpc";
 import { GasGiftStatus } from "~/server/enums";
@@ -279,7 +283,7 @@ export const staffRouter = router({
           });
         }
 
-        const userModel = new UserModel(ctx.graphDB);
+        const userModel = new UserModel(ctx);
         // Create account in database with required fields
         const userId = await userModel.createUser(input.address);
 
@@ -310,20 +314,33 @@ export const staffRouter = router({
             const isRegistered = await registry.isActive(input.address);
 
             if (!isRegistered) {
-              const transactionReceipt = await registry.add(input.address);
+              const addHash = await withWriterLock(() =>
+                registry.submitAdd(input.address)
+              );
+              const transactionReceipt =
+                await publicClient.waitForTransactionReceipt({
+                  hash: addHash,
+                  ...defaultReceiptOptions,
+                });
+              if (transactionReceipt.status === "success") {
+                try {
+                  const giveHash = await withWriterLock(() =>
+                    ethFaucet.submitGiveTo(input.address)
+                  );
+                  await publicClient.waitForTransactionReceipt({
+                    hash: giveHash,
+                    ...defaultReceiptOptions,
+                  });
+                } catch (error) {
+                  console.error("Gas gift failed:", error);
+                }
+              }
               if (transactionReceipt.status === "success") {
                 await userModel.updateGasGiftStatus(
                   userId,
                   GasGiftStatus.APPROVED
                 );
-
-                try {
-                  await ethFaucet.giveTo(input.address);
-                  gasApproved = true;
-                } catch (error) {
-                  console.error("Gas gift failed:", error);
-                  // Don't fail the whole operation if gas gift fails
-                }
+                gasApproved = true;
               } else {
                 console.error("Failed to register address for gas sponsorship");
                 // Don't fail the whole operation if gas registration fails
