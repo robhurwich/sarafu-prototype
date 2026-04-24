@@ -27,6 +27,7 @@ export class PoolModel {
       banner_url?: string;
       tags?: string[];
       pool_name?: string;
+      geo?: { x: number; y: number } | null;
     }
   ): Promise<void> {
     const tagModel = new TagModel({ graphDB: this.graphDB });
@@ -39,6 +40,7 @@ export class PoolModel {
         banner_url: input.banner_url,
         default_voucher: poolAddress,
         unit_of_account: input.unit_of_account,
+        geo: input.geo ?? null,
       })
       .returning("id")
       .executeTakeFirstOrThrow();
@@ -67,6 +69,7 @@ export class PoolModel {
           "unit_of_account",
           "swap_pool_description",
           "banner_url",
+          "geo",
         ])
         .executeTakeFirstOrThrow();
 
@@ -98,6 +101,7 @@ export class PoolModel {
       swap_pool_description?: string;
       unit_of_account?: string;
       tags?: string[];
+      geo?: { x: number; y: number } | null;
     }
   ) {
     let db_pool = await this.graphDB
@@ -109,6 +113,7 @@ export class PoolModel {
         ...(input.unit_of_account && {
           unit_of_account: input.unit_of_account,
         }),
+        ...(input.geo !== undefined && { geo: input.geo }),
       })
       .where("pool_address", "=", poolAddress)
       .returning("id")
@@ -123,6 +128,7 @@ export class PoolModel {
           swap_pool_description: input.swap_pool_description ?? "",
           default_voucher: poolAddress,
           unit_of_account: input.unit_of_account ?? "USD",
+          geo: input.geo ?? null,
         })
         .returning("id")
         .executeTakeFirstOrThrow();

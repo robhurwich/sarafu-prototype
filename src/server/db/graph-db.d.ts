@@ -217,6 +217,7 @@ export interface ServiceType {
 export interface SwapPools {
   banner_url: string | null;
   custom_terms_and_conditions: string | null;
+  geo: Point | null;
   id: Generated<number>;
   pool_address: string;
   pool_name: string | null;
