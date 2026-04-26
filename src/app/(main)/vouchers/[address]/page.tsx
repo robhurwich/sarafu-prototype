@@ -52,7 +52,17 @@ export default async function VouchersPage(props: {
   if (!address || !isAddress(address)) {
     return redirect("/vouchers");
   }
-  const voucher_details = await getTokenDetails(publicClient, {address});
+  let voucher_details;
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    const { MOCK_TOKEN_DETAILS } = await import("~/mock/data");
+    voucher_details = MOCK_TOKEN_DETAILS[address.toLowerCase()] ?? {
+      name: "Unknown Voucher",
+      symbol: "???",
+      decimals: 6,
+    };
+  } else {
+    voucher_details = await getTokenDetails(publicClient, { address });
+  }
 
   return (
     <VoucherPageClient address={address} details={voucher_details} />
