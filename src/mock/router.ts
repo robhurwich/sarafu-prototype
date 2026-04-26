@@ -69,8 +69,10 @@ const mockVoucherRouter = router({
   pools: publicProcedure
     .input(z.object({ voucherAddress: z.string() }))
     .query(({ input }) =>
-      MOCK_POOLS.filter(
-        (p) => p.default_voucher.toLowerCase() === input.voucherAddress.toLowerCase()
+      MOCK_POOLS.filter((p) =>
+        p.voucher_addresses.some(
+          (a) => a.toLowerCase() === input.voucherAddress.toLowerCase()
+        )
       ).map((p) => ({ pool_address: p.contract_address }))
     ),
 
@@ -284,17 +286,27 @@ const mockMeRouter = router({
     .mutation(() => true),
 
   vouchers: authenticatedProcedure.query(({ ctx }) => {
-    const address = ctx.session.address;
-    const persona = Object.values(MOCK_PERSONAS).find(
-      (p) => p.address.toLowerCase() === address.toLowerCase()
+    const address = ctx.session.address.toLowerCase();
+    // Return vouchers the persona owns (sink_address matches) plus a few they've received
+    const owned = MOCK_VOUCHERS.filter(
+      (v) => v.sink_address.toLowerCase() === address
     );
-    return MOCK_VOUCHERS.slice(0, persona?.role === "ADMIN" ? 4 : 2).map((v) => ({
+    // Also give them a couple of vouchers they've received via swaps
+    const received = MOCK_VOUCHERS.filter(
+      (v) => v.sink_address.toLowerCase() !== address
+    ).slice(0, 3);
+    return [...owned, ...received].map((v) => ({
       voucher_address: v.voucher_address as `0x${string}`,
       symbol: v.symbol,
       voucher_name: v.voucher_name,
       icon_url: v.icon_url,
       voucher_type: v.voucher_type,
-      balance: BigInt(Math.floor(Math.random() * 500 + 50)),
+      // Owned vouchers have high balance (they issued them); received have smaller
+      balance: BigInt(
+        v.sink_address.toLowerCase() === address
+          ? Math.floor(Math.random() * 500 + 300)
+          : Math.floor(Math.random() * 80 + 10)
+      ),
     }));
   }),
 
