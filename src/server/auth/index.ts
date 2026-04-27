@@ -38,6 +38,7 @@ async function getMockSession(
         geo: persona.geo,
         role: persona.role,
         default_voucher: persona.default_voucher,
+        onboarding_completed: true,
       },
     };
   } catch {
