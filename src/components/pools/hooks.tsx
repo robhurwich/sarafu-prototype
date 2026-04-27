@@ -112,7 +112,7 @@ export const useSwapPool = (
         });
         return {
           address: swapPoolAddress!,
-          tokenIndex: { contractAddresses: vouchers, entryCount: BigInt(vouchers.length) },
+          tokenIndex: { contractAddresses: vouchers, entryCount: BigInt(vouchers.length), owner: pool.sink_address as `0x${string}` | undefined },
           owner: pool.sink_address as `0x${string}`,
           name: pool.pool_name,
           quoter: undefined,
