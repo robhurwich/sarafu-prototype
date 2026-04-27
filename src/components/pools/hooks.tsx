@@ -81,15 +81,55 @@ export const useSwapPool = (
   const { address: accountAddress } = useAccount();
   const config = useConfig();
   const client = usePublicClient({ config });
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
 
   return useQuery({
     queryKey: ["swapPool", swapPoolAddress, accountAddress],
-    queryFn: () => {
+    queryFn: async () => {
+      if (isMockMode) {
+        const { MOCK_POOLS, MOCK_VOUCHERS } = await import("~/mock/data");
+        const pool = MOCK_POOLS.find(
+          (p) => p.contract_address.toLowerCase() === swapPoolAddress?.toLowerCase()
+        );
+        if (!pool) throw new Error("Mock pool not found");
+        const vouchers = pool.voucher_addresses as `0x${string}`[];
+        const voucherDetails = vouchers.map((addr) => {
+          const v = MOCK_VOUCHERS.find(
+            (mv) => mv.voucher_address.toLowerCase() === addr.toLowerCase()
+          );
+          return {
+            address: addr,
+            symbol: v?.symbol,
+            name: v?.voucher_name,
+            decimals: 6,
+            allowance: undefined,
+            userBalance: undefined,
+            poolBalance: undefined,
+            limitOf: undefined,
+            swapLimit: undefined,
+            priceIndex: 10000n,
+          };
+        });
+        return {
+          address: swapPoolAddress!,
+          tokenIndex: { contractAddresses: vouchers, entryCount: BigInt(vouchers.length) },
+          owner: pool.sink_address as `0x${string}`,
+          name: pool.pool_name,
+          quoter: undefined,
+          feePercentage: 0,
+          feeAddress: undefined,
+          feePpm: undefined,
+          tokenLimiter: undefined,
+          tokenRegistry: undefined,
+          vouchers,
+          voucherDetails,
+        };
+      }
       if (!client) throw new Error("Client not available");
       return getSwapPool(client, swapPoolAddress!, accountAddress);
     },
     initialData: initialData,
-    enabled: !!swapPoolAddress && !!client,
+    enabled: !!swapPoolAddress && (isMockMode || !!client),
     staleTime: 60_000,
   });
 };

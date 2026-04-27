@@ -445,7 +445,18 @@ const mockTransactionRouter = router({
 // ─── Products Router ──────────────────────────────────────────────────────
 
 const mockProductsRouter = router({
-  list: publicProcedure.input(z.any().optional()).query(() => MOCK_PRODUCTS),
+  list: publicProcedure
+    .input(z.object({ voucher_addresses: z.array(z.string()).optional() }).passthrough().optional())
+    .query(({ input }) => {
+      if (input?.voucher_addresses?.length) {
+        return MOCK_PRODUCTS.filter((p) =>
+          input.voucher_addresses!.some(
+            (a) => a.toLowerCase() === p.voucher_address.toLowerCase()
+          )
+        );
+      }
+      return MOCK_PRODUCTS;
+    }),
   listAll: publicProcedure.input(z.any().optional()).query(() => MOCK_PRODUCTS),
 
   listByVoucher: publicProcedure

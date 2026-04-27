@@ -17,7 +17,11 @@ export function useIsContractOwner(voucherAddress: string) {
   const isMultisigOwner = multisig.data?.owners?.some(
     (o) => o.toLowerCase() === auth?.session?.address?.toLowerCase()
   );
-  return owner.data === auth?.session?.address || isMultisigOwner;
+  return (
+    !!owner.data &&
+    !!auth?.session?.address &&
+    (owner.data === auth.session.address || (isMultisigOwner ?? false))
+  );
 }
 
 export function useContractOwner(address: string) {

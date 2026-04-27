@@ -178,7 +178,13 @@ export function UserNav() {
                           authenticationStatus === "loading" ||
                           isPaperLoginPending
                         }
-                        onClick={() => void handlePaperLogin(openConnectModal)}
+                        onClick={() => {
+                          if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+                            void router.push("/login");
+                          } else {
+                            void handlePaperLogin(openConnectModal);
+                          }
+                        }}
                       >
                         {isPaperLoginPending ? <Loading /> : "Login"}
                       </Button>
@@ -321,6 +327,18 @@ export function UserNav() {
                           <User className="mr-2 h-4 w-4" />
                           <span>Profile</span>
                         </DropdownMenuItem>
+                        {process.env.NEXT_PUBLIC_MOCK_MODE === "true" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="flex cursor-pointer items-center text-amber-700"
+                              onClick={() => router.push("/login")}
+                            >
+                              <User className="mr-2 h-4 w-4" />
+                              <span>Switch Persona</span>
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="flex cursor-pointer items-center"

@@ -19,24 +19,38 @@ interface LoginProps {
 const PERSONAS = [
   {
     key: "alice",
-    name: "Alice Wanjiku",
+    name: "Alice Malone",
     role: "Admin",
-    location: "Kibera, Nairobi",
-    description: "Has 4 vouchers, admin access",
+    location: "Easthampton, MA",
+    description: "Pool steward — manages Easthampton Farmers Market pool",
   },
   {
     key: "bob",
-    name: "Bob Kamau",
+    name: "Bob Kowalski",
     role: "User",
-    location: "Mathare, Nairobi",
-    description: "Has 2 vouchers, regular user",
+    location: "Easthampton, MA",
+    description: "Vendor — Hillside Bread bakery",
   },
   {
     key: "carol",
-    name: "Carol Achieng",
+    name: "Carol Rivera",
     role: "User",
-    location: "Korogocho, Nairobi",
-    description: "New user, no gas yet",
+    location: "Northampton, MA",
+    description: "Vendor — River Valley Farm produce",
+  },
+  {
+    key: "dave",
+    name: "Dave Chen",
+    role: "User",
+    location: "Amherst, MA",
+    description: "Vendor — Pioneer Valley Soap",
+  },
+  {
+    key: "emma",
+    name: "Emma Patel",
+    role: "User",
+    location: "Northampton, MA",
+    description: "Shopper — buys from multiple vendors",
   },
 ] as const;
 
