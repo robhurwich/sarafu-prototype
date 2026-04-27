@@ -33,6 +33,7 @@ import {
 import { gasBadgeVariant } from "../users/staff-gas-status";
 export function UserNav() {
   const auth = useAuth();
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
   const queryClient = useQueryClient();
   const isMd = useBreakpoint("md");
   const [isPaperLoginPending, setIsPaperLoginPending] = useState(false);
@@ -166,7 +167,7 @@ export function UserNav() {
               className="w-full"
             >
               {(() => {
-                if (!mounted || !auth?.account || !chain) {
+                if (!mounted || !auth?.session?.address || (!isMockMode && !chain)) {
                   return (
                     <div className="flex w-full items-center justify-end gap-1 sm:gap-2">
                       <Button
@@ -216,7 +217,7 @@ export function UserNav() {
                   );
                 }
 
-                if (chain.unsupported) {
+                if (chain?.unsupported) {
                   return (
                     <Button
                       variant="destructive"

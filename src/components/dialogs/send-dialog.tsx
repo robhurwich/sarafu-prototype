@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, Lock, Send, Users } from "lucide-react";
+import { ChevronDown, CornerDownLeft, Lock, Send, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -98,18 +98,35 @@ export const SendForm = (props: {
     (v) => v.voucher_address === defaultVoucherAddress
   );
 
-  // Load mock contacts
+  // Load recent recipients from transaction history
   useEffect(() => {
     if (!isMockMode) return;
-    void import("~/mock/data").then(({ MOCK_PERSONAS }) => {
+    void import("~/mock/data").then(({ MOCK_TRANSACTIONS, MOCK_PERSONAS }) => {
       const currentAddress = auth?.session?.address?.toLowerCase();
+      if (!currentAddress) return;
+
+      const seen = new Set<string>();
+      const recentRecipients = MOCK_TRANSACTIONS.filter(
+        (tx) =>
+          tx.type === "TOKEN_TRANSFER" &&
+          tx.from_address.toLowerCase() === currentAddress
+      )
+        .map((tx) => tx.to_address as string)
+        .filter((addr) => addr && !seen.has(addr) && (seen.add(addr), true))
+        .slice(0, 5);
+
       setContacts(
-        Object.values(MOCK_PERSONAS)
-          .filter((p) => p.address.toLowerCase() !== currentAddress)
-          .map((p) => ({
-            name: `${p.given_names} ${p.family_name}`,
-            address: p.address as string,
-          }))
+        recentRecipients.map((addr) => {
+          const persona = Object.values(MOCK_PERSONAS).find(
+            (p) => p.address.toLowerCase() === addr.toLowerCase()
+          );
+          return {
+            name: persona
+              ? `${persona.given_names} ${persona.family_name}`
+              : `${addr.slice(0, 6)}…${addr.slice(-4)}`,
+            address: addr,
+          };
+        })
       );
     });
   }, [isMockMode, auth?.session?.address]);
@@ -303,11 +320,12 @@ export const SendForm = (props: {
               form={form}
               label="Recipient"
               name="recipientAddress"
+              className="space-y-4"
               labelAction={
                 props.ownerAddress ? (
                   <button
                     type="button"
-                    className="text-xs font-normal text-primary underline underline-offset-2"
+                    className="flex items-center gap-1 text-xs font-normal text-primary hover:underline hover:underline-offset-2"
                     onClick={() => {
                       form.setValue(
                         "recipientAddress",
@@ -317,6 +335,7 @@ export const SendForm = (props: {
                       setRecipientKey((k) => k + 1);
                     }}
                   >
+                    <CornerDownLeft className="h-3 w-3 shrink-0" />
                     Send to Voucher Owner (Redeem)
                   </button>
                 ) : undefined
@@ -342,7 +361,7 @@ export const SendForm = (props: {
                   className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <Users className="h-3 w-3" />
-                  <span>Choose from contacts</span>
+                  <span>Recent sends</span>
                   <ChevronDown
                     className={cn(
                       "h-3 w-3 transition-transform duration-150",

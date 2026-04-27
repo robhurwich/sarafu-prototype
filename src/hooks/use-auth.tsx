@@ -59,8 +59,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const account = useAccount();
   const { disconnect } = useDisconnect();
 
-  // Handle wallet connection/disconnection
+  // Handle wallet connection/disconnection (skip in mock mode — no wallet)
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") return;
+
     const handleDisconnect = async () => {
       try {
         await fetch("/api/auth/signout", { method: "POST" });
@@ -97,13 +99,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     queryClient,
   ]);
 
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
+
   const me = trpc.me.get.useQuery(undefined, {
-    enabled: !!session?.address && !!account.isConnected,
+    enabled: !!session?.address && (!!account.isConnected || isMockMode),
     retry: false,
   });
 
   const gas = trpc.me.gasStatus.useQuery(undefined, {
-    enabled: !!session?.address && !!account.isConnected,
+    enabled: !!session?.address && (!!account.isConnected || isMockMode),
     retry: false,
   });
 
@@ -150,7 +154,8 @@ export const useAuth = () => {
     throw new Error("useAuth must be used within an AuthProvider");
   }
 
-  if (!context.session?.address || !context.account.isConnected) return null;
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
+  if (!context.session?.address || (!isMockMode && !context.account.isConnected)) return null;
 
   return context;
 };
