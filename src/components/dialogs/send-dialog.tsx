@@ -144,6 +144,10 @@ export const SendForm = (props: {
     [allVouchers, voucherAddress]
   );
 
+  // Use explicit ownerAddress prop if provided, otherwise derive from the selected voucher
+  const effectiveOwnerAddress = (props.ownerAddress ??
+    (currentVoucher?.sink_address as `0x${string}` | undefined));
+
   const simulateContract = useSimulateContract({
     address: voucherAddress,
     abi: erc20Abi,
@@ -307,8 +311,8 @@ export const SendForm = (props: {
             <div className="flex items-center gap-2 rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
               <Lock className="h-3 w-3 shrink-0" />
               <span className="truncate">
-                {props.ownerAddress
-                  ? `${props.ownerAddress.slice(0, 6)}…${props.ownerAddress.slice(-4)}`
+                {effectiveOwnerAddress
+                  ? `${effectiveOwnerAddress.slice(0, 6)}…${effectiveOwnerAddress.slice(-4)}`
                   : "Voucher owner"}
               </span>
             </div>
@@ -322,14 +326,14 @@ export const SendForm = (props: {
               name="recipientAddress"
               className="space-y-4"
               labelAction={
-                props.ownerAddress ? (
+                effectiveOwnerAddress ? (
                   <button
                     type="button"
                     className="flex items-center gap-1 text-xs font-normal text-primary hover:underline hover:underline-offset-2"
                     onClick={() => {
                       form.setValue(
                         "recipientAddress",
-                        props.ownerAddress!,
+                        effectiveOwnerAddress,
                         { shouldValidate: true }
                       );
                       setRecipientKey((k) => k + 1);
@@ -343,8 +347,8 @@ export const SendForm = (props: {
             />
 
             {/* Helper text when owner address is filled */}
-            {props.ownerAddress &&
-              recipientAddress === props.ownerAddress &&
+            {effectiveOwnerAddress &&
+              recipientAddress === effectiveOwnerAddress &&
               currentVoucher && (
                 <p className="mt-1 text-xs text-primary">
                   Sending {currentVoucher.symbol} to{" "}
