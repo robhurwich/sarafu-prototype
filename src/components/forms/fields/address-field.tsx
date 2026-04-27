@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { type UseFormReturn } from "react-hook-form";
 import { isAddress } from "viem";
 import { normalize } from "viem/ens";
@@ -29,6 +29,7 @@ interface AddressFieldProps<Form extends UseFormReturn<any>> {
   description?: string;
   disabled?: boolean;
   label: string;
+  labelAction?: React.ReactNode;
 }
 
 export function AddressField<Form extends UseFormReturn<any>>(
@@ -146,7 +147,16 @@ export function AddressField<Form extends UseFormReturn<any>>(
       render={({ field }) => {
         return (
           <FormItem>
-            <FormLabel>{props.label}</FormLabel>
+            <FormLabel>
+              {props.labelAction ? (
+                <div className="flex items-center gap-6">
+                  <span>{props.label}</span>
+                  {props.labelAction}
+                </div>
+              ) : (
+                props.label
+              )}
+            </FormLabel>
             <FormControl>
               <div className="relative flex gap-2">
                 <Input
