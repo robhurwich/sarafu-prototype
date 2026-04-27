@@ -92,7 +92,7 @@ export const useSwapPool = (
           (p) => p.contract_address.toLowerCase() === swapPoolAddress?.toLowerCase()
         );
         if (!pool) throw new Error("Mock pool not found");
-        const vouchers = pool.voucher_addresses as `0x${string}`[];
+        const vouchers = pool.voucher_addresses;
         const voucherDetails = vouchers.map((addr) => {
           const v = MOCK_VOUCHERS.find(
             (mv) => mv.voucher_address.toLowerCase() === addr.toLowerCase()

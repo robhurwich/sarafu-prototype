@@ -296,7 +296,7 @@ const mockMeRouter = router({
       (v) => v.sink_address.toLowerCase() !== address
     ).slice(0, 3);
     return [...owned, ...received].map((v) => ({
-      voucher_address: v.voucher_address as `0x${string}`,
+      voucher_address: v.voucher_address,
       symbol: v.symbol,
       voucher_name: v.voucher_name,
       icon_url: v.icon_url,
