@@ -426,7 +426,7 @@ export const SendForm = (props: {
             <FormItem>
               <FormLabel>Amount</FormLabel>
               <FormControl>
-                <div className="relative">
+                <div className="relative mt-1.5">
                   <Input
                     placeholder="Amount"
                     {...field}
