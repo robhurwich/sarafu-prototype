@@ -67,6 +67,7 @@ export const SendForm = (props: {
   const [recipientKey, setRecipientKey] = useState(0);
   const [showContacts, setShowContacts] = useState(false);
   const [contacts, setContacts] = useState<{ name: string; address: string }[]>([]);
+  const [selectedContact, setSelectedContact] = useState<{ name: string; address: string } | null>(null);
   const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
 
   const { data: allVouchers } = trpc.voucher.list.useQuery({}, {});
@@ -337,6 +338,7 @@ export const SendForm = (props: {
                         { shouldValidate: true }
                       );
                       setRecipientKey((k) => k + 1);
+                      setSelectedContact(null);
                     }}
                   >
                     <CornerDownLeft className="h-3 w-3 shrink-0" />
@@ -346,15 +348,19 @@ export const SendForm = (props: {
               }
             />
 
-            {/* Helper text when owner address is filled */}
+            {/* Helper text: voucher owner or recent send recipient */}
             {effectiveOwnerAddress &&
-              recipientAddress === effectiveOwnerAddress &&
-              currentVoucher && (
-                <p className="mt-1 text-xs text-primary">
-                  Sending {currentVoucher.symbol} to{" "}
-                  {currentVoucher.voucher_name}
-                </p>
-              )}
+            recipientAddress === effectiveOwnerAddress &&
+            currentVoucher ? (
+              <p className="mt-1 text-xs text-primary">
+                Sending {currentVoucher.symbol} to {currentVoucher.voucher_name}
+              </p>
+            ) : selectedContact &&
+              recipientAddress === selectedContact.address ? (
+              <p className="mt-1 text-xs text-primary">
+                Sending to {selectedContact.name}
+              </p>
+            ) : null}
 
             {/* Contacts */}
             {contacts.length > 0 && (
@@ -387,6 +393,7 @@ export const SendForm = (props: {
                           );
                           setRecipientKey((k) => k + 1);
                           setShowContacts(false);
+                          setSelectedContact(contact);
                         }}
                         className="flex w-full items-center gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-muted/50 transition-colors"
                       >

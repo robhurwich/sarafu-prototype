@@ -159,7 +159,7 @@ export function AddressField<Form extends UseFormReturn<any>>(
               )}
             </FormLabel>
             <FormControl>
-              <div className="relative flex gap-2">
+              <div className="relative flex gap-2 mt-3">
                 <Input
                   containerClassName="flex-grow"
                   disabled={props.disabled}
