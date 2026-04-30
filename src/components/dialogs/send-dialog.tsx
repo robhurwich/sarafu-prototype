@@ -330,7 +330,7 @@ export const SendForm = (props: {
                 effectiveOwnerAddress ? (
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-normal text-primary hover:underline hover:underline-offset-2"
+                    className="flex items-center gap-1 text-[13px] font-normal text-primary hover:underline hover:underline-offset-2"
                     onClick={() => {
                       form.setValue(
                         "recipientAddress",
