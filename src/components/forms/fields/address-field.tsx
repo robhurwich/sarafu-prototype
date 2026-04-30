@@ -30,6 +30,7 @@ interface AddressFieldProps<Form extends UseFormReturn<any>> {
   disabled?: boolean;
   label: string;
   labelAction?: React.ReactNode;
+  className?: string;
 }
 
 export function AddressField<Form extends UseFormReturn<any>>(
@@ -146,10 +147,10 @@ export function AddressField<Form extends UseFormReturn<any>>(
       name={props.name}
       render={({ field }) => {
         return (
-          <FormItem>
+          <FormItem className={props.className}>
             <FormLabel>
               {props.labelAction ? (
-                <div className="flex items-center gap-6">
+                <div className="flex items-center justify-between w-full">
                   <span>{props.label}</span>
                   {props.labelAction}
                 </div>
