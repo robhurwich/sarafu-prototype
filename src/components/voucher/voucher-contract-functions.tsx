@@ -1,6 +1,6 @@
 import {
   ArchiveIcon,
-  HandCoins,
+  CornerDownLeft,
   PlusIcon,
   SendIcon,
   UserIcon,
@@ -154,7 +154,7 @@ export function BasicVoucherFunctions({
           redeemMode={true}
           button={
             <Button variant={"default"}>
-              <HandCoins className="mr-2 h-4" />
+              <CornerDownLeft className="mr-2 h-4 w-4" />
               Redeem
             </Button>
           }
