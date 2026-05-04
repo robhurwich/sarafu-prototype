@@ -6,6 +6,7 @@ import { TabsContent } from "~/components/ui/tabs";
 import VoucherForm from "~/components/voucher/forms/voucher-form";
 import { VoucherHoldersTable } from "~/components/voucher/voucher-holders-table";
 import { useIsContractOwner } from "~/hooks/use-is-owner";
+import { useAuth } from "~/hooks/use-auth";
 import { trpc } from "~/lib/trpc";
 import { type VoucherDetails } from "../pools/contract-functions";
 import { ReportList } from "../reports/report-list";
@@ -23,7 +24,9 @@ const VoucherPage = ({
   details: VoucherDetails;
 }) => {
   const voucher_address = address;
-  const isOwner = useIsContractOwner(voucher_address);
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
+  const auth = useAuth();
+  const blockchainIsOwner = useIsContractOwner(voucher_address);
   const { data: voucher } = trpc.voucher.byAddress.useQuery(
     { voucherAddress: voucher_address },
     {
@@ -31,6 +34,12 @@ const VoucherPage = ({
       staleTime: 60_000,
     }
   );
+  const isOwner = isMockMode
+    ? !!voucher?.sink_address &&
+      !!auth?.session?.address &&
+      voucher.sink_address.toLowerCase() === auth.session.address.toLowerCase()
+    : blockchainIsOwner;
+
   const [activeTab, setActiveTab] = useState("home");
 
   return (

@@ -34,6 +34,40 @@ function allVouchers(): DynamicVoucher[] {
   return [...MOCK_VOUCHERS, ...dynamicVouchers];
 }
 
+// ─── Balance store ────────────────────────────────────────────────────────
+// Deterministic seed so balances don't change on re-render; overrideable after sends.
+
+function deterministicBalance(voucherAddress: string, owned: boolean): bigint {
+  const seed = parseInt(voucherAddress.slice(2, 6), 16) % 200;
+  const base = owned ? 300 + seed : 10 + (seed % 70);
+  return BigInt(base) * 1_000_000n; // scaled to 6-decimal token units
+}
+
+// "userAddr:voucherAddr" → current balance (updated by mockSend)
+const balanceOverrides = new Map<string, bigint>();
+
+function getBalance(userAddress: string, voucherAddress: string, owned: boolean): bigint {
+  const key = `${userAddress.toLowerCase()}:${voucherAddress.toLowerCase()}`;
+  return balanceOverrides.get(key) ?? deterministicBalance(voucherAddress, owned);
+}
+
+// Transactions recorded by mockSend (prepended to the events feed)
+type DynamicTransaction = {
+  id: number;
+  tx_hash: `0x${string}`;
+  date_block: Date;
+  type: "TOKEN_TRANSFER";
+  from_address: string;
+  to_address: string;
+  contract_address: string;
+  voucher_name: string;
+  voucher_symbol: string;
+  amount: string;
+  success: boolean;
+};
+let dynamicTxCounter = 1000;
+const dynamicTransactions: DynamicTransaction[] = [];
+
 // ─── Voucher Router ───────────────────────────────────────────────────────
 
 const mockVoucherRouter = router({
@@ -138,7 +172,6 @@ const mockVoucherRouter = router({
       // Generate a unique address and add the voucher to the session store
       const id = ++dynamicVoucherCounter;
       const newAddress = `0x${"9".repeat(38)}${String(id).padStart(2, "0")}` as `0x${string}`;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const inp = input as Record<string, unknown>;
       dynamicVouchers.push({
         id,
@@ -341,12 +374,7 @@ const mockMeRouter = router({
       voucher_name: v.voucher_name,
       icon_url: v.icon_url,
       voucher_type: v.voucher_type,
-      // Owned vouchers have high balance (they issued them); received have smaller
-      balance: BigInt(
-        v.sink_address.toLowerCase() === address
-          ? Math.floor(Math.random() * 500 + 300)
-          : Math.floor(Math.random() * 80 + 10)
-      ),
+      balance: getBalance(address, v.voucher_address, v.sink_address.toLowerCase() === address),
     }));
   }),
 
@@ -354,17 +382,20 @@ const mockMeRouter = router({
     .input(z.any().optional())
     .query(({ ctx }) => {
       const address = ctx.session.address.toLowerCase();
-      const events = MOCK_TRANSACTIONS.filter(
+      const staticEvents = MOCK_TRANSACTIONS.filter(
         (tx) =>
           tx.from_address.toLowerCase() === address ||
           (tx.to_address?.toLowerCase() ?? "") === address
-      )
-        .slice(0, 50)
-        .map((tx) => ({
-          ...tx,
-          event_type: tx.type,
-          tx_type: tx.type,
-        }));
+      ).map((tx) => ({ ...tx, event_type: tx.type, tx_type: tx.type }));
+      const dynamicEvents = [...dynamicTransactions]
+        .reverse()
+        .filter(
+          (tx) =>
+            tx.from_address.toLowerCase() === address ||
+            tx.to_address.toLowerCase() === address
+        )
+        .map((tx) => ({ ...tx, event_type: tx.type, tx_type: tx.type }));
+      const events = [...dynamicEvents, ...staticEvents].slice(0, 50);
       return { events, nextCursor: undefined };
     }),
 
@@ -377,6 +408,59 @@ const mockMeRouter = router({
   }),
 
   requestGas: authenticatedProcedure.mutation(() => true),
+
+  mockSend: authenticatedProcedure
+    .input(
+      z.object({
+        voucherAddress: z.string(),
+        recipientAddress: z.string(),
+        amount: z.number().positive(),
+      })
+    )
+    .mutation(({ input, ctx }) => {
+      const senderAddr = ctx.session.address.toLowerCase();
+      const recipientAddr = input.recipientAddress.toLowerCase();
+      const voucherAddr = input.voucherAddress.toLowerCase();
+
+      // Convert human-readable amount to 6-decimal token units
+      const amountUnits = BigInt(Math.round(input.amount * 1_000_000));
+
+      const voucher = allVouchers().find(
+        (v) => v.voucher_address.toLowerCase() === voucherAddr
+      );
+      const senderOwns = voucher?.sink_address.toLowerCase() === senderAddr;
+      const recipientOwns = voucher?.sink_address.toLowerCase() === recipientAddr;
+
+      const senderBalance = getBalance(senderAddr, input.voucherAddress, senderOwns);
+      if (senderBalance < amountUnits) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient balance" });
+      }
+
+      // Debit sender, credit recipient
+      balanceOverrides.set(`${senderAddr}:${voucherAddr}`, senderBalance - amountUnits);
+      balanceOverrides.set(
+        `${recipientAddr}:${voucherAddr}`,
+        getBalance(recipientAddr, input.voucherAddress, recipientOwns) + amountUnits
+      );
+
+      // Record the transaction for the events feed
+      const id = ++dynamicTxCounter;
+      dynamicTransactions.push({
+        id,
+        tx_hash: `0xdead${id.toString(16).padStart(60, "0")}` as `0x${string}`,
+        date_block: new Date(),
+        type: "TOKEN_TRANSFER",
+        from_address: senderAddr,
+        to_address: recipientAddr,
+        contract_address: input.voucherAddress,
+        voucher_name: voucher?.voucher_name ?? "",
+        voucher_symbol: voucher?.symbol ?? "",
+        amount: input.amount.toString(),
+        success: true,
+      });
+
+      return { success: true, id };
+    }),
 });
 
 // ─── User Router ──────────────────────────────────────────────────────────
@@ -547,7 +631,7 @@ const mockProfileRouter = router({
           icon_url: v.icon_url,
           voucher_type: v.voucher_type,
           indexed: true,
-          balance: BigInt(Math.floor(Math.random() * 500 + 300)),
+          balance: getBalance(addr, v.voucher_address, true),
         }));
     }),
 });

@@ -14,6 +14,7 @@ import { useAccount, useSimulateContract, useWriteContract } from "wagmi";
 import { ResponsiveModal } from "~/components/responsive-modal";
 import { useBalance } from "~/contracts/react";
 import { useDebounce } from "~/hooks/use-debounce";
+import { getFormattedValue } from "~/utils/units/token";
 import { useDivviReferral } from "~/hooks/use-divvi-referral";
 import { useAuth } from "~/hooks/use-auth";
 import { trpc } from "~/lib/trpc";
@@ -179,7 +180,41 @@ export const SendForm = (props: {
     token: voucherAddress,
   });
 
+  // In mock mode derive balance from the me.vouchers data (no blockchain available)
+  const mockBalance = React.useMemo(() => {
+    if (!isMockMode || !myVouchers || !voucherAddress) return undefined;
+    const v = myVouchers.find((mv) => mv.voucher_address === voucherAddress);
+    if (!v || !("balance" in v) || typeof v.balance !== "bigint") return undefined;
+    return getFormattedValue(v.balance, 6);
+  }, [isMockMode, myVouchers, voucherAddress]);
+
+  const effectiveBalance = isMockMode ? mockBalance : balance.data;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  const { mutateAsync: mockSend, isPending: isMockSending } = (trpc.me as any).mockSend.useMutation() as {
+    mutateAsync: (input: { voucherAddress: string; recipientAddress: string; amount: number }) => Promise<unknown>;
+    isPending: boolean;
+  };
+
   const handleSubmit = () => {
+    if (isMockMode) {
+      void mockSend({
+        voucherAddress: form.getValues("voucherAddress"),
+        recipientAddress: form.getValues("recipientAddress"),
+        amount: form.getValues("amount"),
+      })
+        .then(() => {
+          toast.success("Sent successfully!");
+          form.reset();
+          void utils.me.events.invalidate();
+          void utils.me.vouchers.invalidate();
+          props.onSuccess?.();
+        })
+        .catch((err: Error) => {
+          toast.error(err.message);
+        });
+      return;
+    }
     if (simulateContract.data?.request) {
       void writeContractAsync?.(simulateContract.data.request)
         .catch((error: WriteContractErrorType) => {
@@ -428,11 +463,11 @@ export const SendForm = (props: {
                   />
                   <div
                     onClick={() => {
-                      field.onChange(balance.data?.formattedNumber);
+                      field.onChange(effectiveBalance?.formattedNumber);
                     }}
                     className="absolute right-2 top-2 text-slate-400 cursor-pointer"
                   >
-                    {balance.data?.formatted} {voucherDetails?.symbol}
+                    {effectiveBalance?.formatted} {voucherDetails?.symbol}
                   </div>
                 </div>
               </FormControl>
@@ -462,9 +497,19 @@ export const SendForm = (props: {
           <Button
             type="submit"
             className="w-full"
-            disabled={!simulateContract?.data?.request || isPending}
+            disabled={
+              isMockMode
+                ? !isValid || isMockSending
+                : !simulateContract?.data?.request || isPending
+            }
           >
-            {isPending || simulateContract.isLoading ? <Loading /> : "Send"}
+            {isMockMode
+              ? isMockSending
+                ? <Loading />
+                : "Send"
+              : isPending || simulateContract.isLoading
+                ? <Loading />
+                : "Send"}
           </Button>
         </div>
       </form>
