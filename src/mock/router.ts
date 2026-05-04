@@ -23,6 +23,17 @@ import {
   type PersonaKey,
 } from "./data";
 
+// ─── Dynamic voucher store ────────────────────────────────────────────────
+// Vouchers created during this server session (cleared on restart).
+
+type DynamicVoucher = (typeof MOCK_VOUCHERS)[0];
+let dynamicVoucherCounter = 100;
+const dynamicVouchers: DynamicVoucher[] = [];
+
+function allVouchers(): DynamicVoucher[] {
+  return [...MOCK_VOUCHERS, ...dynamicVouchers];
+}
+
 // ─── Voucher Router ───────────────────────────────────────────────────────
 
 const mockVoucherRouter = router({
@@ -38,7 +49,7 @@ const mockVoucherRouter = router({
     .query(({ input }) => {
       const sortBy = input?.sortBy ?? "transactions";
       const sortDir = input?.sortDirection ?? "desc";
-      const vouchers = [...MOCK_VOUCHERS];
+      const vouchers = allVouchers();
       vouchers.sort((a, b) => {
         const mul = sortDir === "asc" ? 1 : -1;
         if (sortBy === "transactions") return (a.transaction_count - b.transaction_count) * mul;
@@ -48,12 +59,12 @@ const mockVoucherRouter = router({
       return vouchers;
     }),
 
-  count: publicProcedure.query(() => MOCK_VOUCHERS.length),
+  count: publicProcedure.query(() => allVouchers().length),
 
   byAddress: publicProcedure
     .input(z.object({ voucherAddress: z.string() }))
     .query(({ input }) =>
-      MOCK_VOUCHERS.find(
+      allVouchers().find(
         (v) => v.voucher_address.toLowerCase() === input.voucherAddress.toLowerCase()
       ) ?? null
     ),
@@ -114,7 +125,7 @@ const mockVoucherRouter = router({
 
   deploy: authenticatedProcedure
     .input(z.any())
-    .mutation(async function* () {
+    .mutation(async function* ({ input, ctx }) {
       yield { message: "1/5 - Preparing your voucher...", status: "loading" as const };
       await new Promise((r) => setTimeout(r, 800));
       yield { message: "2/5 - Setting up community pool...", status: "loading" as const };
@@ -123,10 +134,38 @@ const mockVoucherRouter = router({
       await new Promise((r) => setTimeout(r, 600));
       yield { message: "4/5 - Confirming registration...", status: "loading" as const };
       await new Promise((r) => setTimeout(r, 400));
+
+      // Generate a unique address and add the voucher to the session store
+      const id = ++dynamicVoucherCounter;
+      const newAddress = `0x${"9".repeat(38)}${String(id).padStart(2, "0")}` as `0x${string}`;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const inp = input as Record<string, unknown>;
+      dynamicVouchers.push({
+        id,
+        voucher_address: newAddress,
+        symbol: (inp.symbol as string | undefined) ?? "NEW",
+        voucher_name: (inp.name as string | undefined) ?? "New Voucher",
+        voucher_description: (inp.description as string | undefined) ?? "",
+        voucher_type: "GIFTABLE",
+        voucher_uoa: (inp.uoa as string | undefined) ?? "USD",
+        voucher_value: (inp.value as number | undefined) ?? 1,
+        location_name: (inp.location as string | undefined) ?? "",
+        geo: (inp.geo as { x: number; y: number } | undefined) ?? { x: 0, y: 0 },
+        voucher_email: (inp.email as string | undefined) ?? "",
+        voucher_website: "",
+        banner_url: `https://picsum.photos/seed/${id}/1200/400`,
+        icon_url: `https://picsum.photos/seed/${id}/200/200`,
+        sink_address: ctx.session.address,
+        created_at: new Date(),
+        transaction_count: 0,
+        internal: false,
+        contract_version: "1.0",
+      });
+
       yield {
         message: "5/5 - Voucher created successfully!",
         status: "success" as const,
-        address: "0x9999999999999999999999999999999999999999" as `0x${string}`,
+        address: newAddress,
         // No txHash — triggers immediate success path without blockchain polling
       };
     }),
@@ -287,12 +326,13 @@ const mockMeRouter = router({
 
   vouchers: authenticatedProcedure.query(({ ctx }) => {
     const address = ctx.session.address.toLowerCase();
+    const all = allVouchers();
     // Return vouchers the persona owns (sink_address matches) plus a few they've received
-    const owned = MOCK_VOUCHERS.filter(
+    const owned = all.filter(
       (v) => v.sink_address.toLowerCase() === address
     );
     // Also give them a couple of vouchers they've received via swaps
-    const received = MOCK_VOUCHERS.filter(
+    const received = all.filter(
       (v) => v.sink_address.toLowerCase() !== address
     ).slice(0, 3);
     return [...owned, ...received].map((v) => ({
@@ -494,6 +534,22 @@ const mockProfileRouter = router({
     return persona ?? null;
   }),
   update: authenticatedProcedure.input(z.any()).mutation(() => true),
+  getUserOwnedVouchers: publicProcedure
+    .input(z.object({ address: z.string() }))
+    .query(({ input }) => {
+      const addr = input.address.toLowerCase();
+      return allVouchers()
+        .filter((v) => v.sink_address.toLowerCase() === addr)
+        .map((v) => ({
+          voucher_address: v.voucher_address,
+          symbol: v.symbol,
+          voucher_name: v.voucher_name,
+          icon_url: v.icon_url,
+          voucher_type: v.voucher_type,
+          indexed: true,
+          balance: BigInt(Math.floor(Math.random() * 500 + 300)),
+        }));
+    }),
 });
 
 // ─── Tags Router ──────────────────────────────────────────────────────────
