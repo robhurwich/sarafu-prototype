@@ -603,9 +603,21 @@ const mockProductsRouter = router({
     .input(z.any().optional())
     .query(() => MOCK_PRODUCTS.slice(0, 4)),
 
+  byId: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(({ input }) => {
+      const product = MOCK_PRODUCTS.find((p) => p.id === input.id);
+      if (!product) return null;
+      return { ...product, unit: null, categories: [] };
+    }),
+
   create: authenticatedProcedure.input(z.any()).mutation(() => ({ id: 99 })),
+  // "insert" is the name ProductManager uses (aliased from create)
+  insert: authenticatedProcedure.input(z.any()).mutation(() => ({ id: 99 })),
   update: authenticatedProcedure.input(z.any()).mutation(() => true),
   delete: authenticatedProcedure.input(z.any()).mutation(() => true),
+  // "remove" is the name ProductManager uses (aliased from delete)
+  remove: authenticatedProcedure.input(z.any()).mutation(() => true),
 });
 
 // ─── Profile Router ───────────────────────────────────────────────────────

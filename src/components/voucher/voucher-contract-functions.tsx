@@ -14,6 +14,7 @@ import { SendDialog } from "../dialogs/send-dialog";
 import { toast } from "sonner";
 import { useMounted } from "~/hooks/use-mounted";
 import { useIsContractOwner } from "~/hooks/use-is-owner";
+import { useAuth } from "~/hooks/use-auth";
 import { type RouterOutputs } from "~/lib/trpc";
 import { VoucherType } from "~/server/enums";
 import ChangeSinkAddressDialog from "../dialogs/change-sink-dialog";
@@ -93,8 +94,16 @@ export function BasicVoucherFunctions({
   const account = useAccount();
   const mounted = useMounted();
   const wallet = useWalletClient();
+  const auth = useAuth();
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
   const isWriter = useIsWriter(voucher_address);
-  const isOwner = useIsContractOwner(voucher_address);
+  const blockchainIsOwner = useIsContractOwner(voucher_address);
+  const isOwner = isMockMode
+    ? !!voucher?.sink_address &&
+      !!auth?.session?.address &&
+      voucher.sink_address.toLowerCase() ===
+        auth.session.address.toLowerCase()
+    : blockchainIsOwner;
   const { data: details } = useVoucherDetails(voucher_address as `0x${string}`);
   function watchVoucher() {
     if (details?.symbol && details?.decimals) {

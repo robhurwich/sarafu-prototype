@@ -59,7 +59,19 @@ const VoucherForm = ({
 
   const isPending = update.isPending || remove.isPending;
 
-  const isOwner = useIsContractOwner(voucherAddress);
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
+  // In mock mode there's no wagmi wallet — use session address instead
+  const effectiveIsConnected = isMockMode ? !!auth?.session?.address : isConnected;
+  const effectiveAddress = isMockMode ? auth?.session?.address : address;
+
+  const blockchainIsOwner = useIsContractOwner(voucherAddress);
+  const isOwner = isMockMode
+    ? !!metadata?.sink_address &&
+      !!auth?.session?.address &&
+      metadata.sink_address.toLowerCase() ===
+        auth.session.address.toLowerCase()
+    : blockchainIsOwner;
+
   const canUpdate = hasPermission(auth?.user, isOwner, "Vouchers", "UPDATE");
   const canAdd = hasPermission(auth?.user, isOwner, "Vouchers", "ADD");
   const canDelete = hasPermission(auth?.user, isOwner, "Vouchers", "DELETE");
@@ -133,7 +145,7 @@ const VoucherForm = ({
     }
   };
 
-  if (!isConnected || !address) {
+  if (!effectiveIsConnected || !effectiveAddress) {
     return (
       <Alert variant="warning" title="Warning">
         Please Connect your Wallet
