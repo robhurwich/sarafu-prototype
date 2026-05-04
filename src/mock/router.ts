@@ -127,7 +127,7 @@ const mockVoucherRouter = router({
         message: "5/5 - Voucher created successfully!",
         status: "success" as const,
         address: "0x9999999999999999999999999999999999999999" as `0x${string}`,
-        txHash: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" as `0x${string}`,
+        // No txHash — triggers immediate success path without blockchain polling
       };
     }),
 });
@@ -312,13 +312,21 @@ const mockMeRouter = router({
 
   events: authenticatedProcedure
     .input(z.any().optional())
-    .query(() =>
-      MOCK_TRANSACTIONS.slice(0, 10).map((tx) => ({
-        ...tx,
-        event_type: tx.type,
-        tx_type: tx.type,
-      }))
-    ),
+    .query(({ ctx }) => {
+      const address = ctx.session.address.toLowerCase();
+      const events = MOCK_TRANSACTIONS.filter(
+        (tx) =>
+          tx.from_address.toLowerCase() === address ||
+          (tx.to_address?.toLowerCase() ?? "") === address
+      )
+        .slice(0, 50)
+        .map((tx) => ({
+          ...tx,
+          event_type: tx.type,
+          tx_type: tx.type,
+        }));
+      return { events, nextCursor: undefined };
+    }),
 
   gasStatus: authenticatedProcedure.query(({ ctx }) => {
     const address = ctx.session.address;

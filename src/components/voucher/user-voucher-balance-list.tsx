@@ -19,6 +19,7 @@ import {
 import { useAuth } from "~/hooks/use-auth";
 import { cn } from "~/lib/utils";
 import { type RouterOutput } from "~/server/api/root";
+import { getFormattedValue, type TokenValue } from "~/utils/units/token";
 import { useMultiVoucherBalances } from "./hooks";
 import { UserVoucherBalanceItem } from "./user-voucher-balance-item";
 
@@ -45,11 +46,14 @@ export function UserVoucherBalanceList({
   enableIndexedFilter = true,
 }: UserVoucherBalanceListProps) {
   const auth = useAuth();
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("balance");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [filter, setFilter] = useState<FilterOption>("active");
-  const [showIndexedOnly, setShowIndexedOnly] = useState(true);
+  // In mock mode default to "all" — blockchain balance calls don't work without a wallet
+  const [filter, setFilter] = useState<FilterOption>(isMockMode ? "all" : "active");
+  // In mock mode don't filter by indexed — mock vouchers don't have this field
+  const [showIndexedOnly, setShowIndexedOnly] = useState(!isMockMode);
 
   // Use provided address or fall back to logged-in user's address
   const targetAddress = address ?? auth?.session?.address;
@@ -58,6 +62,19 @@ export function UserVoucherBalanceList({
     vouchers?.map((v) => v.voucher_address as `0x${string}`) ?? [],
     targetAddress
   );
+
+  // In mock mode, blockchain balance calls return nothing (no wallet). Build a
+  // fallback balance map from the balance field returned by the mock me.vouchers query.
+  const effectiveBalances = useMemo(() => {
+    if (!isMockMode) return balances;
+    const mockMap: Record<`0x${string}`, TokenValue | undefined> = {};
+    vouchers?.forEach((v) => {
+      if ("balance" in v && typeof v.balance === "bigint") {
+        mockMap[v.voucher_address as `0x${string}`] = getFormattedValue(v.balance, 6);
+      }
+    });
+    return mockMap;
+  }, [isMockMode, balances, vouchers]);
 
   const filteredAndSortedVouchers = useMemo(() => {
     if (!vouchers) return [];
@@ -76,7 +93,7 @@ export function UserVoucherBalanceList({
 
       // Balance filter
       const balance =
-        balances[voucher.voucher_address as `0x${string}`]?.formattedNumber ||
+        effectiveBalances[voucher.voucher_address as `0x${string}`]?.formattedNumber ||
         0;
 
       switch (filter) {
@@ -103,9 +120,9 @@ export function UserVoucherBalanceList({
           return multiplier * (a.symbol || "").localeCompare(b.symbol || "");
         case "balance":
           const balanceA =
-            balances[a.voucher_address as `0x${string}`]?.value || BigInt(0);
+            effectiveBalances[a.voucher_address as `0x${string}`]?.value || BigInt(0);
           const balanceB =
-            balances[b.voucher_address as `0x${string}`]?.value || BigInt(0);
+            effectiveBalances[b.voucher_address as `0x${string}`]?.value || BigInt(0);
           return (
             multiplier *
             (balanceA > balanceB ? 1 : balanceA < balanceB ? -1 : 0)
@@ -243,7 +260,7 @@ export function UserVoucherBalanceList({
           <div key={voucher.voucher_address}>
             <UserVoucherBalanceItem
               voucher={voucher}
-              balance={balances[voucher.voucher_address as `0x${string}`]}
+              balance={effectiveBalances[voucher.voucher_address as `0x${string}`]}
             />
           </div>
         ))}

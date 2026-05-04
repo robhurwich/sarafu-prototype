@@ -1,6 +1,7 @@
 "use client";
 
 import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConnectors } from "wagmi";
@@ -56,6 +57,7 @@ const PERSONAS = [
 
 function MockLoginPanel({ redirectPath }: { redirectPath: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +71,8 @@ function MockLoginPanel({ redirectPath }: { redirectPath: string }) {
         body: JSON.stringify({ personaKey }),
       });
       if (!res.ok) throw new Error("Login failed");
+      // Clear all cached query data so the new persona's data loads fresh
+      queryClient.clear();
       router.push(redirectPath);
       router.refresh();
     } catch (err) {
