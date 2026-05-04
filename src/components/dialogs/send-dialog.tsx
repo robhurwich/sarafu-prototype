@@ -201,7 +201,8 @@ export const SendForm = (props: {
       void mockSend({
         voucherAddress: form.getValues("voucherAddress"),
         recipientAddress: form.getValues("recipientAddress"),
-        amount: form.getValues("amount"),
+        // getValues returns raw string from the HTML input — coerce to number
+        amount: Number(form.getValues("amount")),
       })
         .then(() => {
           toast.success("Sent successfully!");

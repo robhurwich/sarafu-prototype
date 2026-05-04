@@ -280,18 +280,35 @@ export const useUpdatePoolVoucherExchangeRate = () => {
   });
 };
 export const useVoucherDetails = (voucherAddress?: `0x${string}`) => {
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
   const config = useConfig();
   const client = usePublicClient({ config });
 
-  return useQuery({
+  // In mock mode, look up name/symbol/decimals from the local fixture data
+  // (no blockchain RPC client available in the prototype).
+  const mockResult = useQuery({
+    queryKey: ["voucherDetailsMock", voucherAddress],
+    queryFn: async () => {
+      if (!voucherAddress) return null;
+      const { MOCK_TOKEN_DETAILS } = await import("~/mock/data");
+      return MOCK_TOKEN_DETAILS[voucherAddress.toLowerCase()] ?? null;
+    },
+    enabled: isMockMode && !!voucherAddress,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+
+  const realResult = useQuery({
     queryKey: ["voucherDetails", voucherAddress],
     queryFn: () => {
       if (!client) throw new Error("Client not available");
       if (!voucherAddress) return null;
       return getVoucherDetails(client, voucherAddress);
     },
-    enabled: !!voucherAddress && !!client,
+    enabled: !isMockMode && !!voucherAddress && !!client,
     staleTime: Infinity,
     gcTime: Infinity,
   });
+
+  return isMockMode ? mockResult : realResult;
 };
