@@ -577,6 +577,27 @@ const mockTransactionRouter = router({
 // ─── Products Router ──────────────────────────────────────────────────────
 
 const mockProductsRouter = router({
+  marketplaceList: publicProcedure.query(() =>
+    MOCK_PRODUCTS.map((p) => ({
+      id: p.id,
+      commodity_name: p.commodity_name,
+      commodity_description: p.commodity_description,
+      commodity_type: p.commodity_type,
+      image_url: p.image_url,
+      price: p.price,
+      unit: null as string | null,
+      location_name: p.location_name,
+      voucher_geo: p.voucher_geo as { x: number; y: number } | null,
+      voucher_address: p.voucher_address as `0x${string}`,
+      voucher_name: p.voucher_name,
+      voucher_symbol: p.voucher_symbol,
+      voucher_icon: null as string | null,
+      voucher_value: 1,
+      voucher_uoa: "USD",
+      tags: [] as string[],
+    }))
+  ),
+
   list: publicProcedure
     .input(z.object({ voucher_addresses: z.array(z.string()).optional() }).passthrough().optional())
     .query(({ input }) => {
