@@ -588,7 +588,7 @@ const mockProductsRouter = router({
       unit: null as string | null,
       location_name: p.location_name,
       voucher_geo: p.voucher_geo as { x: number; y: number } | null,
-      voucher_address: p.voucher_address as `0x${string}`,
+      voucher_address: p.voucher_address,
       voucher_name: p.voucher_name,
       voucher_symbol: p.voucher_symbol,
       voucher_icon: null as string | null,
