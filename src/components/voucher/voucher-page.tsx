@@ -35,9 +35,9 @@ const VoucherPage = ({
     }
   );
   const isOwner = isMockMode
-    ? !!voucher?.sink_address &&
+    ? !!voucher?.redemption_address &&
       !!auth?.session?.address &&
-      voucher.sink_address.toLowerCase() === auth.session.address.toLowerCase()
+      voucher.redemption_address.toLowerCase() === auth.session.address.toLowerCase()
     : blockchainIsOwner;
 
   const [activeTab, setActiveTab] = useState("home");

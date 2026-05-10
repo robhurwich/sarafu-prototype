@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown, CornerDownLeft, Lock, Send, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -13,12 +13,13 @@ import { erc20Abi, isAddress, parseUnits } from "viem";
 import { useAccount, useSimulateContract, useWriteContract } from "wagmi";
 import { ResponsiveModal } from "~/components/responsive-modal";
 import { useBalance } from "~/contracts/react";
+import { useAuth } from "~/hooks/use-auth";
 import { useDebounce } from "~/hooks/use-debounce";
 import { getFormattedValue } from "~/utils/units/token";
 import { useDivviReferral } from "~/hooks/use-divvi-referral";
-import { useAuth } from "~/hooks/use-auth";
 import { trpc } from "~/lib/trpc";
 import { cn } from "~/lib/utils";
+import Address from "../address";
 import { AddressField } from "../forms/fields/address-field";
 import { Loading } from "../loading";
 import { useVoucherDetails } from "../pools/hooks";
@@ -42,7 +43,7 @@ const FormSchema = z.object({
   amount: z.coerce.number().positive(),
   recipientAddress: z.custom<`0x${string}`>(
     isAddress,
-    "Invalid recipient address"
+    "Invalid recipient address",
   ),
 });
 
@@ -67,13 +68,20 @@ export const SendForm = (props: {
   const [showAllVouchers, setShowAllVouchers] = useState(false);
   const [recipientKey, setRecipientKey] = useState(0);
   const [showContacts, setShowContacts] = useState(false);
-  const [contacts, setContacts] = useState<{ name: string; address: string }[]>([]);
+  const [selectedContact, setSelectedContact] = useState<{
+    name: string;
+    address: string;
+  } | null>(null);
   const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
 
   const { data: allVouchers } = trpc.voucher.list.useQuery({}, {});
   const { data: myVouchers } = trpc.me.vouchers.useQuery(undefined, {
     enabled: Boolean(auth?.session?.address),
   });
+  const { data: events } = trpc.me.events.useQuery(
+    { limit: 50 },
+    { enabled: Boolean(auth?.session?.address) },
+  );
 
   const defaultVoucherAddress =
     props.voucherAddress ??
@@ -96,41 +104,31 @@ export const SendForm = (props: {
   });
 
   const defaultVoucher = allVouchers?.find(
-    (v) => v.voucher_address === defaultVoucherAddress
+    (v) => v.voucher_address === defaultVoucherAddress,
   );
 
-  // Load recent recipients from transaction history
-  useEffect(() => {
-    if (!isMockMode) return;
-    void import("~/mock/data").then(({ MOCK_TRANSACTIONS, MOCK_PERSONAS }) => {
-      const currentAddress = auth?.session?.address?.toLowerCase();
-      if (!currentAddress) return;
-
-      const seen = new Set<string>();
-      const recentRecipients = MOCK_TRANSACTIONS.filter(
+  // Derive recent send recipients from transaction history
+  const contacts = React.useMemo(() => {
+    if (!events?.events || !auth?.session?.address) return [];
+    const currentAddress = auth.session.address.toLowerCase();
+    const seen = new Set<string>();
+    return events.events
+      .filter(
         (tx) =>
-          tx.type === "TOKEN_TRANSFER" &&
-          tx.from_address.toLowerCase() === currentAddress
+          tx.event_type?.toLowerCase() === "token_transfer" &&
+          typeof tx.from_address === "string" &&
+          tx.from_address.toLowerCase() === currentAddress,
       )
-        .map((tx) => tx.to_address as string)
-        .filter((addr) => addr && !seen.has(addr) && (seen.add(addr), true))
-        .slice(0, 5);
-
-      setContacts(
-        recentRecipients.map((addr) => {
-          const persona = Object.values(MOCK_PERSONAS).find(
-            (p) => p.address.toLowerCase() === addr.toLowerCase()
-          );
-          return {
-            name: persona
-              ? `${persona.given_names} ${persona.family_name}`
-              : `${addr.slice(0, 6)}…${addr.slice(-4)}`,
-            address: addr,
-          };
-        })
-      );
-    });
-  }, [isMockMode, auth?.session?.address]);
+      .map((tx) => tx.to_address)
+      .filter(
+        (addr: string) => addr && !seen.has(addr) && (seen.add(addr), true),
+      )
+      .slice(0, 5)
+      .map((addr: string) => ({
+        name: `${addr.slice(0, 6)}…${addr.slice(-4)}`,
+        address: addr,
+      }));
+  }, [events, auth?.session?.address]);
 
   const isValid = form.formState.isValid;
   const voucherAddress = form.watch("voucherAddress");
@@ -142,12 +140,13 @@ export const SendForm = (props: {
 
   const currentVoucher = React.useMemo(
     () => allVouchers?.find((v) => v.voucher_address === voucherAddress),
-    [allVouchers, voucherAddress]
+    [allVouchers, voucherAddress],
   );
 
   // Use explicit ownerAddress prop if provided, otherwise derive from the selected voucher
-  const effectiveOwnerAddress = (props.ownerAddress ??
-    (currentVoucher?.sink_address as `0x${string}` | undefined));
+  const effectiveOwnerAddress =
+    props.ownerAddress ??
+    (currentVoucher?.redemption_address as `0x${string}` | undefined);
 
   const simulateContract = useSimulateContract({
     address: voucherAddress,
@@ -157,17 +156,17 @@ export const SendForm = (props: {
       debouncedRecipientAddress,
       parseUnits(
         debouncedAmount?.toString() ?? "",
-        voucherDetails?.decimals ?? 0
+        voucherDetails?.decimals ?? 0,
       ),
     ],
     dataSuffix: getReferralTag(),
     query: {
       enabled: Boolean(
         voucherDetails?.decimals &&
-          debouncedAmount &&
-          debouncedRecipientAddress &&
-          voucherAddress &&
-          isValid
+        debouncedAmount &&
+        debouncedRecipientAddress &&
+        voucherAddress &&
+        isValid,
       ),
     },
     gas: 350_000n,
@@ -195,6 +194,7 @@ export const SendForm = (props: {
     mutateAsync: (input: { voucherAddress: string; recipientAddress: string; amount: number }) => Promise<unknown>;
     isPending: boolean;
   };
+
 
   const handleSubmit = () => {
     if (isMockMode) {
@@ -250,7 +250,7 @@ export const SendForm = (props: {
       if (
         defaultVoucher &&
         !myVouchers?.find(
-          (v) => v.voucher_address === defaultVoucher.voucher_address
+          (v) => v.voucher_address === defaultVoucher.voucher_address,
         )
       ) {
         if (myVouchers) {
@@ -365,14 +365,13 @@ export const SendForm = (props: {
                 effectiveOwnerAddress ? (
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-normal text-primary hover:underline hover:underline-offset-2"
+                    className="flex items-center gap-1 text-[13px] font-normal text-primary hover:underline hover:underline-offset-2"
                     onClick={() => {
-                      form.setValue(
-                        "recipientAddress",
-                        effectiveOwnerAddress,
-                        { shouldValidate: true }
-                      );
+                      form.setValue("recipientAddress", effectiveOwnerAddress, {
+                        shouldValidate: true,
+                      });
                       setRecipientKey((k) => k + 1);
+                      setSelectedContact(null);
                     }}
                   >
                     <CornerDownLeft className="h-3 w-3 shrink-0" />
@@ -382,15 +381,19 @@ export const SendForm = (props: {
               }
             />
 
-            {/* Helper text when owner address is filled */}
+            {/* Helper text: voucher owner or recent send recipient */}
             {effectiveOwnerAddress &&
-              recipientAddress === effectiveOwnerAddress &&
-              currentVoucher && (
-                <p className="mt-1 text-xs text-primary">
-                  Sending {currentVoucher.symbol} to{" "}
-                  {currentVoucher.voucher_name}
-                </p>
-              )}
+            recipientAddress === effectiveOwnerAddress &&
+            currentVoucher ? (
+              <p className="mt-1 text-xs text-primary">
+                Sending {currentVoucher.symbol} to {currentVoucher.voucher_name}
+              </p>
+            ) : selectedContact &&
+              recipientAddress === selectedContact.address ? (
+              <p className="mt-1 text-xs text-primary">
+                Sending to {selectedContact.name}
+              </p>
+            ) : null}
 
             {/* Contacts */}
             {contacts.length > 0 && (
@@ -405,7 +408,7 @@ export const SendForm = (props: {
                   <ChevronDown
                     className={cn(
                       "h-3 w-3 transition-transform duration-150",
-                      showContacts && "rotate-180"
+                      showContacts && "rotate-180",
                     )}
                   />
                 </button>
@@ -419,10 +422,11 @@ export const SendForm = (props: {
                           form.setValue(
                             "recipientAddress",
                             contact.address as `0x${string}`,
-                            { shouldValidate: true }
+                            { shouldValidate: true },
                           );
                           setRecipientKey((k) => k + 1);
                           setShowContacts(false);
+                          setSelectedContact(contact);
                         }}
                         className="flex w-full items-center gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-muted/50 transition-colors"
                       >
@@ -431,10 +435,15 @@ export const SendForm = (props: {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium leading-none">
-                            {contact.name}
+                            <Address
+                              className="inline-block mr-1"
+                              address={contact.address}
+                              forceTruncate={true}
+                              linkTo="none"
+                            />
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {contact.address.slice(0, 10)}…
+                            {contact.address.slice(0, 6)}…
                             {contact.address.slice(-4)}
                           </p>
                         </div>
@@ -455,7 +464,7 @@ export const SendForm = (props: {
             <FormItem>
               <FormLabel>Amount</FormLabel>
               <FormControl>
-                <div className="relative">
+                <div className="relative mt-1.5">
                   <Input
                     placeholder="Amount"
                     {...field}

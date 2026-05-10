@@ -180,6 +180,7 @@ export interface PersonalInformation {
   date_of_birth: string | null;
   bio: string | null;
   profile_photo_url: string | null;
+  phone_number: string | null;
 }
 
 export interface ProductListings {
@@ -224,6 +225,7 @@ export interface SwapPools {
   swap_pool_description: string;
   default_voucher: string;
   unit_of_account: string;
+  phone_number: string | null;
 }
 
 export interface SwapPoolTags {
@@ -269,6 +271,7 @@ export interface Vouchers {
   internal: Generated<boolean | null>;
   location_name: string | null;
   radius: number | null;
+  redemption_address: string | null;
   sink_address: string;
   symbol: string;
   voucher_address: string;
@@ -279,6 +282,7 @@ export interface Vouchers {
   voucher_uoa: string;
   voucher_value: number;
   voucher_website: string | null;
+  phone_number: string | null;
 }
 
 export interface VoucherType {

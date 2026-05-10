@@ -188,7 +188,7 @@ const mockVoucherRouter = router({
         voucher_website: "",
         banner_url: `https://picsum.photos/seed/${id}/1200/400`,
         icon_url: `https://picsum.photos/seed/${id}/200/200`,
-        sink_address: ctx.session.address,
+        redemption_address: ctx.session.address,
         created_at: new Date(),
         transaction_count: 0,
         internal: false,
@@ -360,13 +360,13 @@ const mockMeRouter = router({
   vouchers: authenticatedProcedure.query(({ ctx }) => {
     const address = ctx.session.address.toLowerCase();
     const all = allVouchers();
-    // Return vouchers the persona owns (sink_address matches) plus a few they've received
+    // Return vouchers the persona owns (redemption_address matches) plus a few they've received
     const owned = all.filter(
-      (v) => v.sink_address.toLowerCase() === address
+      (v) => v.redemption_address.toLowerCase() === address
     );
     // Also give them a couple of vouchers they've received via swaps
     const received = all.filter(
-      (v) => v.sink_address.toLowerCase() !== address
+      (v) => v.redemption_address.toLowerCase() !== address
     ).slice(0, 3);
     return [...owned, ...received].map((v) => ({
       voucher_address: v.voucher_address,
@@ -374,7 +374,7 @@ const mockMeRouter = router({
       voucher_name: v.voucher_name,
       icon_url: v.icon_url,
       voucher_type: v.voucher_type,
-      balance: getBalance(address, v.voucher_address, v.sink_address.toLowerCase() === address),
+      balance: getBalance(address, v.voucher_address, v.redemption_address.toLowerCase() === address),
     }));
   }),
 
@@ -428,8 +428,8 @@ const mockMeRouter = router({
       const voucher = allVouchers().find(
         (v) => v.voucher_address.toLowerCase() === voucherAddr
       );
-      const senderOwns = voucher?.sink_address.toLowerCase() === senderAddr;
-      const recipientOwns = voucher?.sink_address.toLowerCase() === recipientAddr;
+      const senderOwns = voucher?.redemption_address.toLowerCase() === senderAddr;
+      const recipientOwns = voucher?.redemption_address.toLowerCase() === recipientAddr;
 
       const senderBalance = getBalance(senderAddr, input.voucherAddress, senderOwns);
       if (senderBalance < amountUnits) {
@@ -656,7 +656,7 @@ const mockProfileRouter = router({
     .query(({ input }) => {
       const addr = input.address.toLowerCase();
       return allVouchers()
-        .filter((v) => v.sink_address.toLowerCase() === addr)
+        .filter((v) => v.redemption_address.toLowerCase() === addr)
         .map((v) => ({
           voucher_address: v.voucher_address,
           symbol: v.symbol,

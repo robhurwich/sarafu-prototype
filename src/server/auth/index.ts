@@ -38,6 +38,7 @@ async function getMockSession(
         geo: persona.geo,
         role: persona.role,
         default_voucher: persona.default_voucher,
+        phone_number: null,
         onboarding_completed: true,
       },
     };
@@ -112,6 +113,7 @@ async function _getSession(): Promise<AppSession | null> {
             given_names: info.given_names,
             location_name: info.location_name,
             year_of_birth: info.year_of_birth,
+            phone_number: info.phone_number,
             onboarding_completed: info.onboarding_completed ?? false,
             role: info.role,
             account_id: info.account_id,

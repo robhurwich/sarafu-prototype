@@ -16,6 +16,7 @@ const VOUCHER_LIST_FIELDS = [
   "vouchers.location_name",
   "vouchers.voucher_email",
   "vouchers.voucher_website",
+  "vouchers.phone_number",
   "vouchers.voucher_type",
   "vouchers.voucher_uoa",
   "vouchers.banner_url",
@@ -23,6 +24,7 @@ const VOUCHER_LIST_FIELDS = [
   "vouchers.created_at",
   "vouchers.voucher_value",
   "vouchers.sink_address",
+  "vouchers.redemption_address",
   "vouchers.symbol",
 ] as const;
 
@@ -193,6 +195,7 @@ export class VoucherModel {
     location_name: string;
     internal: boolean;
     contract_version: string;
+    phone_number: string | null;
   }) {
     return this.graphDB.transaction().execute(async (trx) => {
       const voucher = await trx
@@ -212,6 +215,7 @@ export class VoucherModel {
           location_name: voucherData.location_name,
           internal: voucherData.internal,
           contract_version: voucherData.contract_version,
+          phone_number: voucherData.phone_number,
         })
         .returning([
           "id",
@@ -241,6 +245,7 @@ export class VoucherModel {
         "voucher_uoa",
         "voucher_type",
         "sink_address",
+        "redemption_address",
         "voucher_email",
         "voucher_website",
         "geo",
@@ -361,6 +366,14 @@ export class VoucherModel {
         voucher_website: input.voucherWebsite,
         voucher_uoa: input.voucherUoa,
         voucher_value: input.voucherValue,
+        ...(input.phoneNumber !== undefined && {
+          phone_number: input.phoneNumber,
+        }),
+        // Only touch redemption_address when the caller explicitly sent it
+        // (null clears it, a string sets it, omitted leaves it alone).
+        ...(input.redemptionAddress !== undefined && {
+          redemption_address: input.redemptionAddress,
+        }),
       })
       .where("voucher_address", "=", input.voucherAddress)
       .returningAll()
