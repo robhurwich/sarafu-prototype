@@ -1,6 +1,7 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useConfig, usePublicClient } from "wagmi";
+import { useAuth } from "~/hooks/use-auth";
 import {
   addVoucherToPool,
   getContractIndex,
@@ -82,31 +83,54 @@ export const useSwapPool = (
   const config = useConfig();
   const client = usePublicClient({ config });
   const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
+  const auth = useAuth();
+  // In mock mode there is no wallet, so derive the user address from the session
+  const effectiveAddress = isMockMode
+    ? (auth?.session?.address?.toLowerCase() ?? "")
+    : accountAddress;
 
   return useQuery({
-    queryKey: ["swapPool", swapPoolAddress, accountAddress],
+    queryKey: ["swapPool", swapPoolAddress, effectiveAddress],
     queryFn: async () => {
       if (isMockMode) {
         const { MOCK_POOLS, MOCK_VOUCHERS } = await import("~/mock/data");
+        const { getFormattedValue } = await import("~/utils/units/token");
         const pool = MOCK_POOLS.find(
           (p) => p.contract_address.toLowerCase() === swapPoolAddress?.toLowerCase()
         );
         if (!pool) throw new Error("Mock pool not found");
         const vouchers = pool.voucher_addresses;
+
+        const DECIMALS = 6;
+        const SCALE = 1_000_000n;
+
         const voucherDetails = vouchers.map((addr) => {
           const v = MOCK_VOUCHERS.find(
             (mv) => mv.voucher_address.toLowerCase() === addr.toLowerCase()
           );
+          // Deterministic seed mirrors the mock router balance logic
+          const seed = parseInt(addr.slice(2, 6), 16) % 200;
+          const owned =
+            v?.redemption_address?.toLowerCase() === effectiveAddress;
+          // Owners get a healthy balance; non-owners get a small received amount
+          const userBalRaw = owned
+            ? BigInt(300 + seed) * SCALE
+            : BigInt(10 + (seed % 70)) * SCALE;
+          // Pool holds a varied amount of each voucher; limit is always 2000
+          const poolBalRaw = BigInt(800 + seed) * SCALE;
+          const limitRaw = 2000n * SCALE;
+          const swapLimitRaw = limitRaw - poolBalRaw;
+
           return {
             address: addr,
             symbol: v?.symbol,
             name: v?.voucher_name,
-            decimals: 6,
+            decimals: DECIMALS,
             allowance: undefined,
-            userBalance: undefined,
-            poolBalance: undefined,
-            limitOf: undefined,
-            swapLimit: undefined,
+            userBalance: getFormattedValue(userBalRaw, DECIMALS),
+            poolBalance: getFormattedValue(poolBalRaw, DECIMALS),
+            limitOf: getFormattedValue(limitRaw, DECIMALS),
+            swapLimit: getFormattedValue(swapLimitRaw, DECIMALS),
             priceIndex: 10000n,
           };
         });
