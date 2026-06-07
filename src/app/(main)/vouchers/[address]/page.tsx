@@ -16,6 +16,18 @@ type Props = {
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
   const address = params.address;
+
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    const { MOCK_VOUCHERS } = await import("~/mock/data");
+    const v = MOCK_VOUCHERS.find(
+      (x) => x.voucher_address.toLowerCase() === address.toLowerCase()
+    );
+    return {
+      title: v?.voucher_name ?? "Voucher",
+      description: v?.voucher_description ?? "",
+    };
+  }
+
   const voucherData = await getPublicVoucher(address);
 
   return {

@@ -17,17 +17,21 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
   const pool_address = getAddress(params.address);
 
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    const { MOCK_POOLS } = await import("~/mock/data");
+    const p = MOCK_POOLS.find(
+      (x) => x.contract_address.toLowerCase() === pool_address.toLowerCase()
+    );
+    return {
+      title: p?.pool_name ?? "Pool",
+      description: p?.swap_pool_description ?? "",
+    };
+  }
+
   const [poolDetails, poolData] = await Promise.all([
     getCachedSwapPool(pool_address),
     getPublicPoolMetadata(pool_address),
   ]);
-
-  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
-    return {
-      title: poolData?.pool_name ?? "Pool",
-      description: poolData?.swap_pool_description ?? "",
-    };
-  }
 
   return {
     title: poolDetails?.name,
@@ -46,6 +50,13 @@ export default async function PoolPage(props: {
 }) {
   const params = await props.params;
   const pool_address = getAddress(params.address);
+
+  // In mock mode skip the real swap-pool/DB fetchers (they hit Celo + Postgres
+  // and throw). The client component refetches via the mock tRPC router and the
+  // mock-aware useSwapPool hook, so undefined initial data is fine.
+  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+    return <PoolClientPage address={pool_address} />;
+  }
 
   const [initialPool, initialMetadata] = await Promise.all([
     getCachedSwapPool(pool_address),
