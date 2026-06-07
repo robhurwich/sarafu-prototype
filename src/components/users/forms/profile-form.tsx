@@ -6,12 +6,13 @@ import type * as z from "zod";
 import { DateField } from "~/components/forms/fields/date-field";
 import { ImageUploadField } from "~/components/forms/fields/image-upload-field";
 import { VoucherSelectField } from "~/components/voucher/voucher-select-field";
-import { CUSD_TOKEN_ADDRESS } from "~/lib/contacts";
+import { USDT_TOKEN_ADDRESS } from "~/lib/contacts";
 import { trpc } from "~/lib/trpc";
 import { cn } from "~/lib/utils";
 import { InputField } from "../../forms/fields/input-field";
 import { MapField } from "../../forms/fields/map-field";
 import { PhoneField } from "../../forms/fields/phone-field";
+import { PhoneVerificationStatus } from "./phone-verification-status";
 import { Loading } from "../../loading";
 import { Button } from "../../ui/button";
 import {
@@ -41,7 +42,7 @@ export function ProfileForm(props: ProfileFormProps) {
     mode: "onBlur",
     values: props.initialValues,
     defaultValues: {
-      default_voucher: CUSD_TOKEN_ADDRESS,
+      default_voucher: USDT_TOKEN_ADDRESS,
     },
   });
   const vouchersQuery = trpc.voucher.list.useQuery({});
@@ -107,8 +108,11 @@ export function ProfileForm(props: ProfileFormProps) {
             form={form}
             name="phone_number"
             label="Phone (optional)"
-            description="Public — shown on your profile so people can reach you."
+            description="Public on your profile. Kenyan numbers can also be verified for Add Funds."
             disabled={props.viewOnly}
+          />
+          <PhoneVerificationStatus
+            draftPhone={form.watch("phone_number") ?? undefined}
           />
           <DateField
             form={form}

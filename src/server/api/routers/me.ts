@@ -7,7 +7,7 @@ import {
   UserProfileFormSchema,
 } from "~/components/users/schemas";
 import { isPhoneNumber, normalizePhoneNumber } from "~/utils/phone-number";
-import { CELO_TOKEN_ADDRESS, CUSD_TOKEN_ADDRESS } from "~/lib/contacts";
+import { CELO_TOKEN_ADDRESS, USDT_TOKEN_ADDRESS } from "~/lib/contacts";
 import { authenticatedProcedure, router } from "~/server/api/trpc";
 import { type GraphDB } from "~/server/db";
 import { GasGiftStatus, type AccountRoleType } from "~/server/enums";
@@ -96,6 +96,7 @@ export const meRouter = router({
         "personal_information.bio",
         "personal_information.profile_photo_url",
         "personal_information.phone_number",
+        "personal_information.phone_verified_at",
         "accounts.default_voucher",
         "accounts.onboarding_completed",
       ])
@@ -103,7 +104,7 @@ export const meRouter = router({
 
     return {
       ...info,
-      default_voucher: info.default_voucher ?? CUSD_TOKEN_ADDRESS,
+      default_voucher: info.default_voucher ?? USDT_TOKEN_ADDRESS,
     };
   }),
 
@@ -122,6 +123,12 @@ export const meRouter = router({
         }
       }
       const phone_number = normalizePhone(pi.phone_number);
+      const existing = await ctx.graphDB
+        .selectFrom("personal_information")
+        .select(["phone_number"])
+        .where("user_identifier", "=", user.userId)
+        .executeTakeFirst();
+      const phoneChanged = (existing?.phone_number ?? null) !== phone_number;
       await ctx.graphDB
         .updateTable("personal_information")
         .set({
@@ -135,6 +142,9 @@ export const meRouter = router({
           bio: pi.bio,
           profile_photo_url: pi.profile_photo_url,
           phone_number,
+          // Only reset verification when the phone number actually changes;
+          // re-verification is required for onramp.
+          ...(phoneChanged ? { phone_verified_at: null } : {}),
         })
         .where("user_identifier", "=", user.userId)
         .execute();

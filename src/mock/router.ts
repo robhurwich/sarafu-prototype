@@ -747,6 +747,8 @@ export const mockAppRouter = router({
   checkout: stubRouter,
   staff: stubRouter,
   safe: stubRouter,
+  onramp: stubRouter,
+  otp: stubRouter,
 });
 
 export type MockAppRouter = typeof mockAppRouter;

@@ -1,25 +1,12 @@
 import { type Metadata } from "next";
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 import { isAddress } from "viem";
 import VoucherPageClient from "~/components/voucher/voucher-page";
 import { publicClient } from "~/config/viem.config.server";
 import { getTokenDetails } from "~/server/api/models/token";
-import { caller } from "~/server/api/routers/_app";
-import { graphDB } from "~/server/db";
+import { getPublicVoucher } from "~/server/api/public-fetchers";
 
-export async function generateStaticParams() {
-  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
-    const { MOCK_VOUCHERS } = await import("~/mock/data");
-    return MOCK_VOUCHERS.map((v) => ({ address: v.voucher_address }));
-  }
-  const vouchers = await graphDB
-    .selectFrom("vouchers")
-    .select("voucher_address")
-    .execute();
-  return vouchers.map((v) => ({
-    address: v.voucher_address,
-  }));
-}
+export const revalidate = 60;
 
 type Props = {
   params: Promise<{ address: string }>;
@@ -29,9 +16,7 @@ type Props = {
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
   const address = params.address;
-  const voucherData = await caller.voucher.byAddress({
-    voucherAddress: address,
-  });
+  const voucherData = await getPublicVoucher(address);
 
   return {
     title: voucherData?.voucher_name ?? "Unknown Voucher",
@@ -44,6 +29,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     },
   };
 }
+
 export default async function VouchersPage(props: {
   params: Promise<{ address: string }>;
 }) {
@@ -52,7 +38,9 @@ export default async function VouchersPage(props: {
   if (!address || !isAddress(address)) {
     return redirect("/vouchers");
   }
+
   let voucher_details;
+  let voucher_metadata;
   if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
     const { MOCK_TOKEN_DETAILS } = await import("~/mock/data");
     voucher_details = MOCK_TOKEN_DETAILS[address.toLowerCase()] ?? {
@@ -61,10 +49,17 @@ export default async function VouchersPage(props: {
       decimals: 6,
     };
   } else {
-    voucher_details = await getTokenDetails(publicClient, { address });
+    [voucher_details, voucher_metadata] = await Promise.all([
+      getTokenDetails(publicClient, { address }),
+      getPublicVoucher(address),
+    ]);
   }
 
   return (
-    <VoucherPageClient address={address} details={voucher_details} />
+    <VoucherPageClient
+      address={address}
+      details={voucher_details}
+      initialVoucher={voucher_metadata}
+    />
   );
 }

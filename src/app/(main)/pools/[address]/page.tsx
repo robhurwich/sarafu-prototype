@@ -1,27 +1,13 @@
 import type { Metadata } from "next";
 import { getAddress } from "viem";
 import {
-  getContractIndex,
-  getSwapPool,
-} from "~/components/pools/contract-functions";
-import { publicClient } from "~/config/viem.config.server";
-import { env } from "~/env";
-import { caller } from "~/server/api/routers/_app";
+  getCachedSwapPool,
+  getPublicPoolMetadata,
+} from "~/server/api/public-fetchers";
 import { PoolClientPage } from "./pool-client-page";
 
-export async function generateStaticParams() {
-  if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
-    const { MOCK_POOLS } = await import("~/mock/data");
-    return MOCK_POOLS.map((p) => ({ address: p.contract_address }));
-  }
-  const data = await getContractIndex(
-    publicClient,
-    env.NEXT_PUBLIC_SWAP_POOL_INDEX_ADDRESS
-  );
-  return data.contractAddresses.map((address) => ({
-    address: address,
-  }));
-}
+export const revalidate = 60;
+
 type Props = {
   params: Promise<{ address: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -31,7 +17,10 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
   const pool_address = getAddress(params.address);
 
-  const poolData = await caller.pool.get(pool_address);
+  const [poolDetails, poolData] = await Promise.all([
+    getCachedSwapPool(pool_address),
+    getPublicPoolMetadata(pool_address),
+  ]);
 
   if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
     return {
@@ -39,8 +28,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       description: poolData?.swap_pool_description ?? "",
     };
   }
-
-  const poolDetails = await getSwapPool(publicClient, pool_address);
 
   return {
     title: poolDetails?.name,
@@ -54,6 +41,22 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   };
 }
 
-export default function PoolPage() {
-  return <PoolClientPage />;
+export default async function PoolPage(props: {
+  params: Promise<{ address: string }>;
+}) {
+  const params = await props.params;
+  const pool_address = getAddress(params.address);
+
+  const [initialPool, initialMetadata] = await Promise.all([
+    getCachedSwapPool(pool_address),
+    getPublicPoolMetadata(pool_address),
+  ]);
+
+  return (
+    <PoolClientPage
+      address={pool_address}
+      initialPool={initialPool}
+      initialMetadata={initialMetadata}
+    />
+  );
 }
