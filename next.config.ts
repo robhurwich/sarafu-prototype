@@ -41,6 +41,10 @@ const config: NextConfig = {
   },
   output: Boolean(process.env.DOCKER) ? "standalone" : undefined,
   images: {
+    // In mock mode, vendor images come from arbitrary hosts (pulled from
+    // Airtable), so skip the remote-host allowlist entirely. The real app keeps
+    // optimization + the explicit allowlist below.
+    unoptimized: process.env.NEXT_PUBLIC_MOCK_MODE === "true",
     remotePatterns: [
       {
         protocol: "https",

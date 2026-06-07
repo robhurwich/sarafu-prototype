@@ -6,7 +6,15 @@
  *
  * Scenario: Three Pioneer Valley farmers markets (Easthampton, Northampton, Amherst MA)
  * Each market is a Commitment Pool. Each vendor has one voucher.
+ *
+ * Easthampton (EFM) vendors/offers are REAL, pulled from Airtable via
+ * `pnpm sync:airtable` (see src/mock/airtable.generated.ts). Northampton and
+ * Amherst remain mock until real vendors are added to those markets.
  */
+import {
+  AIRTABLE_EFM_OFFERS,
+  AIRTABLE_EFM_VOUCHERS,
+} from "./airtable.generated";
 
 // ─── Address constants ──────────────────────────────────────────────────────
 // Addresses are deterministic fake hex — not real Celo contracts.
@@ -67,6 +75,14 @@ const ADDR_HDFLW = "0xa1000000000000000000000000000000a100000a" as `0x${string}`
 
 // ─── User Personas ─────────────────────────────────────────────────────────
 
+// The real Easthampton voucher each persona owns (by owner_persona tag from the
+// Airtable sync); falls back to the first real voucher for shoppers like Emma.
+const efmAddrForPersona = (persona: string): `0x${string}` =>
+  AIRTABLE_EFM_VOUCHERS.find((v) => v.owner_persona === persona)
+    ?.voucher_address ??
+  AIRTABLE_EFM_VOUCHERS[0]?.voucher_address ??
+  ADDR_ALICE;
+
 export const MOCK_PERSONAS = {
   alice: {
     address: ADDR_ALICE,
@@ -79,7 +95,7 @@ export const MOCK_PERSONAS = {
     location_name: "Easthampton, MA",
     geo: { x: 42.2676, y: -72.6687 },
     role: "ADMIN" as const,
-    default_voucher: ADDR_RVFM,
+    default_voucher: efmAddrForPersona("alice"),
     gas_status: "APPROVED",
   },
   bob: {
@@ -93,7 +109,7 @@ export const MOCK_PERSONAS = {
     location_name: "Easthampton, MA",
     geo: { x: 42.2676, y: -72.6687 },
     role: "USER" as const,
-    default_voucher: ADDR_HLBR,
+    default_voucher: efmAddrForPersona("bob"),
     gas_status: "APPROVED",
   },
   carol: {
@@ -107,7 +123,7 @@ export const MOCK_PERSONAS = {
     location_name: "Easthampton, MA",
     geo: { x: 42.2676, y: -72.6687 },
     role: "USER" as const,
-    default_voucher: ADDR_TSPR,
+    default_voucher: efmAddrForPersona("carol"),
     gas_status: "APPROVED",
   },
   dave: {
@@ -121,7 +137,7 @@ export const MOCK_PERSONAS = {
     location_name: "Easthampton, MA",
     geo: { x: 42.2676, y: -72.6687 },
     role: "USER" as const,
-    default_voucher: ADDR_PVSOP,
+    default_voucher: efmAddrForPersona("dave"),
     gas_status: "APPROVED",
   },
   emma: {
@@ -135,7 +151,7 @@ export const MOCK_PERSONAS = {
     location_name: "Northampton, MA",
     geo: { x: 42.3251, y: -72.6324 },
     role: "USER" as const,
-    default_voucher: ADDR_RVFM,
+    default_voucher: efmAddrForPersona("alice"),
     gas_status: "APPROVED",
   },
 } as const;
@@ -146,7 +162,7 @@ export type PersonaKey = keyof typeof MOCK_PERSONAS;
 // Each vendor's voucher. redemption_address = the vendor/owner's wallet.
 // Non-persona vendor addresses are "external" accounts not in the login picker.
 
-export const MOCK_VOUCHERS = [
+const MOCK_VOUCHERS_SEED = [
   // ── Easthampton Farmers Market (EFM) ───────────────────────────────────
   {
     id: 1,
@@ -893,11 +909,10 @@ export const MOCK_VOUCHERS = [
 // Each pool = one farmers market.
 // voucher_addresses lists all vendor vouchers accepted by this pool.
 
-const EFM_VOUCHER_ADDRESSES = [
-  ADDR_RVFM, ADDR_HLBR, ADDR_PVSOP, ADDR_HBMED, ADDR_SREG,
-  ADDR_HMCO, ADDR_BRMPL, ADDR_TSPR, ADDR_VCFLW, ADDR_EWJAM,
-  ADDR_HLHRB, ADDR_MRGRAN, ADDR_PSFM, ADDR_MMSP, ADDR_CGCOF,
-];
+// Real Easthampton vendor vouchers, from the Airtable sync.
+const EFM_VOUCHER_ADDRESSES = AIRTABLE_EFM_VOUCHERS.map(
+  (v) => v.voucher_address
+);
 
 const NFM_VOUCHER_ADDRESSES = [
   ADDR_MBFM, ADDR_NBRD, ADDR_SHCH, ADDR_GRHN, ADDR_IWFM,
@@ -915,12 +930,12 @@ export const MOCK_POOLS = [
     pool_name: "Easthampton Farmers Market",
     pool_symbol: "EFM",
     swap_pool_description:
-      "A mutual credit pool for vendors at the Easthampton Farmers Market at Eastworks. Members can swap credits across all 15 participating vendors.",
+      "A mutual credit pool for vendors at the Easthampton Farmers Market at Eastworks. Members can swap credits across all participating vendors.",
     banner_url: "https://picsum.photos/seed/205/1200/400",
     swap_count: 1847,
-    voucher_count: 15,
-    tags: ["produce", "bakery", "soap", "honey", "eggs", "mushrooms", "meat", "coffee", "flowers"],
-    default_voucher: ADDR_RVFM,
+    voucher_count: EFM_VOUCHER_ADDRESSES.length,
+    tags: ["produce", "soap", "body", "cleaning", "cakes", "meat", "gluten-free", "vegan", "grocery"],
+    default_voucher: efmAddrForPersona("alice"),
     voucher_addresses: EFM_VOUCHER_ADDRESSES,
   },
   {
@@ -955,7 +970,7 @@ export const MOCK_POOLS = [
 // commodity_type: "GOOD" | "SERVICE"
 // frequency: "weekly" | "seasonal" | "on-demand"
 
-export const MOCK_PRODUCTS = [
+const MOCK_PRODUCTS_SEED = [
   // ── EFM Offers ─────────────────────────────────────────────────────────
   { id: 1,  commodity_name: "Mixed Veggie Box",          commodity_description: "Seasonal CSA box with 8–10 varieties of vegetables",                              commodity_type: "GOOD" as const, price: 22, quantity: 30, frequency: "weekly",   image_url: "https://picsum.photos/seed/50/400/300", voucher_address: ADDR_RVFM,   voucher_name: "River Valley Farm",        voucher_symbol: "RVFM",   location_name: "Easthampton, MA", voucher_geo: { x: 42.2676, y: -72.6687 } },
   { id: 2,  commodity_name: "Salad Mix",                  commodity_description: "Mixed baby greens, arugula, and spinach — washed and ready",                     commodity_type: "GOOD" as const, price: 5,  quantity: 50, frequency: "weekly",   image_url: "https://picsum.photos/seed/51/400/300", voucher_address: ADDR_RVFM,   voucher_name: "River Valley Farm",        voucher_symbol: "RVFM",   location_name: "Easthampton, MA", voucher_geo: { x: 42.2676, y: -72.6687 } },
@@ -1033,22 +1048,64 @@ export const MOCK_PRODUCTS = [
   { id: 70, commodity_name: "Dried Lavender Bundle",      commodity_description: "Fragrant dried lavender from our Hadley fields",                               commodity_type: "GOOD" as const, price: 10, quantity: 20, frequency: "seasonal", image_url: "https://picsum.photos/seed/119/400/300", voucher_address: ADDR_HDFLW,  voucher_name: "Hadley Flower Farm",       voucher_symbol: "HDFLW",  location_name: "Hadley, MA",      voucher_geo: { x: 42.3487, y: -72.5712 } },
 ];
 
+// ─── Compose real (Airtable) Easthampton data with mock NFM/AFM ──────────────
+// EFM seed vouchers/offers are dropped and replaced by the real Airtable vendors.
+const OLD_EFM_ADDRESSES = new Set(
+  [
+    ADDR_RVFM, ADDR_HLBR, ADDR_PVSOP, ADDR_HBMED, ADDR_SREG,
+    ADDR_HMCO, ADDR_BRMPL, ADDR_TSPR, ADDR_VCFLW, ADDR_EWJAM,
+    ADDR_HLHRB, ADDR_MRGRAN, ADDR_PSFM, ADDR_MMSP, ADDR_CGCOF,
+  ].map((a) => a.toLowerCase())
+);
+
+const EFM_REAL_VOUCHERS = AIRTABLE_EFM_VOUCHERS.map((v, i) => ({
+  id: i + 1,
+  voucher_address: v.voucher_address,
+  symbol: v.symbol,
+  voucher_name: v.voucher_name,
+  voucher_description: v.voucher_description,
+  voucher_type: v.voucher_type,
+  voucher_uoa: v.voucher_uoa,
+  voucher_value: v.voucher_value,
+  location_name: v.location_name,
+  geo: v.geo,
+  voucher_email: v.voucher_email,
+  voucher_website: v.voucher_website,
+  banner_url: v.banner_url,
+  icon_url: v.icon_url,
+  redemption_address: v.redemption_address,
+  created_at: new Date(v.created_at),
+  transaction_count: v.transaction_count,
+  internal: v.internal,
+  contract_version: v.contract_version,
+}));
+
+export const MOCK_VOUCHERS = [
+  ...EFM_REAL_VOUCHERS,
+  ...MOCK_VOUCHERS_SEED.filter(
+    (v) => !OLD_EFM_ADDRESSES.has(v.voucher_address.toLowerCase())
+  ),
+];
+
+export const MOCK_PRODUCTS = [
+  ...AIRTABLE_EFM_OFFERS,
+  ...MOCK_PRODUCTS_SEED.filter(
+    (p) => !OLD_EFM_ADDRESSES.has(p.voucher_address.toLowerCase())
+  ),
+];
+
 // ─── Transactions ───────────────────────────────────────────────────────────
 
 const now = Date.now();
 const day = 86400000;
 
-// Build a set of realistic transactions using the new addresses
+// Build a set of realistic transactions from current vouchers (mix of markets)
 const txVouchers = [
-  { addr: ADDR_RVFM, name: "River Valley Farm",       sym: "RVFM"  },
-  { addr: ADDR_HLBR, name: "Hillside Bread",           sym: "HLBR"  },
-  { addr: ADDR_TSPR, name: "Three Sisters Produce",    sym: "TSPR"  },
-  { addr: ADDR_SREG, name: "Sunrise Farm Eggs",        sym: "SREG"  },
-  { addr: ADDR_MBFM, name: "Meadow Brook Farm",        sym: "MBFM"  },
-  { addr: ADDR_BKSH, name: "Black Sheep Sourdough",    sym: "BKSH"  },
-  { addr: ADDR_CGCOF,name: "Common Grounds Coffee",    sym: "CGCOF" },
-  { addr: ADDR_PVSOP,name: "Pioneer Valley Soap",      sym: "PVSOP" },
-];
+  MOCK_VOUCHERS[0], MOCK_VOUCHERS[1], MOCK_VOUCHERS[2], MOCK_VOUCHERS[3],
+  MOCK_VOUCHERS[10], MOCK_VOUCHERS[12], MOCK_VOUCHERS[20], MOCK_VOUCHERS[22],
+]
+  .filter((v): v is (typeof MOCK_VOUCHERS)[number] => Boolean(v))
+  .map((v) => ({ addr: v.voucher_address, name: v.voucher_name, sym: v.symbol }));
 
 const txParties = [ADDR_ALICE, ADDR_BOB, ADDR_CAROL, ADDR_DAVE, ADDR_EMMA];
 

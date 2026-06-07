@@ -18,7 +18,8 @@
     "generate:graph": "kysely-codegen --out-file ./src/server/db/graph-db.d.ts --exclude-pattern 'hdb_catalog.*'",
     "generate:federated": "source .env && kysely-codegen --url $FEDERATED_DB_URL --out-file ./src/server/db/federated-db.d.ts --dialect postgres --exclude-pattern 'chain_data.*' --exclude-pattern 'custodial.*' --exclude-pattern 'alias.*' --exclude-pattern 'ussd.*' --exclude-pattern 'sarafu_network.*'",
     "test": "NODE_ENV=test SKIP_ENV_VALIDATION=true vitest run",
-    "prepare": "husky"
+    "prepare": "husky",
+    "sync:airtable": "node scripts/sync-airtable.mjs"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.19",
