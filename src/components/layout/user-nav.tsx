@@ -35,6 +35,22 @@ export function UserNav() {
     address: user_address,
   });
   const handleDisconnect = () => {
+    // In mock mode there is no wallet to disconnect — clear the iron-session
+    // cookie via the mock-login DELETE handler, then send the user to /login.
+    if (process.env.NEXT_PUBLIC_MOCK_MODE === "true") {
+      void (async () => {
+        try {
+          await fetch("/api/auth/mock-login", { method: "DELETE" });
+          // Full-page navigation so all client state (React Query / tRPC cache)
+          // is cleared — otherwise the persona lingers in the cache.
+          window.location.assign("/login");
+        } catch (err) {
+          console.error("Mock logout failed", err);
+          toast.error("Logout failed");
+        }
+      })();
+      return;
+    }
     disconnectAsync()
       .then(() => {
         console.log("Disconnected");

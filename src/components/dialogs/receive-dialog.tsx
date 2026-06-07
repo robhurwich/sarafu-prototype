@@ -12,6 +12,7 @@ import { z } from "zod";
 import React from "react";
 import { ResponsiveModal } from "~/components/responsive-modal";
 import { useBalance } from "~/contracts/react";
+import { useAuth } from "~/hooks/use-auth";
 import { useDebounce } from "~/hooks/use-debounce";
 import { useDivviReferral } from "~/hooks/use-divvi-referral";
 import { useENS } from "~/lib/sarafu/resolver";
@@ -530,7 +531,12 @@ const RequestForm = (props: {
 
 export function ReceiveDialog(props: ReceiveDialogProps) {
   const [type, setType] = useState<"request" | "qr">("qr");
-  const { address: currentUserAddress } = useAccount();
+  const auth = useAuth();
+  const { address: walletAddress } = useAccount();
+  // In mock mode there is no connected wallet, so fall back to the logged-in
+  // persona's session address. Without this currentUserAddress is undefined and
+  // AddressQRCode (react-qr-code) throws on a null value, crashing the page.
+  const currentUserAddress = walletAddress ?? auth?.session?.address;
   const ensName = useENS({ address: currentUserAddress! });
   const title = type === "qr" ? "Receive" : "Request Payment";
   const description =
