@@ -51,6 +51,28 @@ function getBalance(userAddress: string, voucherAddress: string, owned: boolean)
   return balanceOverrides.get(key) ?? deterministicBalance(voucherAddress, owned);
 }
 
+// ─── Pool balance store (mirrors the user balance store above) ───────────────
+// Each pool holds a deterministic seed amount of every voucher, updated by swaps.
+const SCALE = 1_000_000n; // 6-decimal token units
+const POOL_LIMIT = 2000n * SCALE; // per-voucher credit limit in every pool
+
+function poolSeedBalance(voucherAddress: string): bigint {
+  const seed = parseInt(voucherAddress.slice(2, 6), 16) % 200;
+  return BigInt(800 + seed) * SCALE;
+}
+
+const poolBalanceOverrides = new Map<string, bigint>();
+
+function getPoolBalance(poolAddress: string, voucherAddress: string): bigint {
+  const key = `${poolAddress.toLowerCase()}:${voucherAddress.toLowerCase()}`;
+  return poolBalanceOverrides.get(key) ?? poolSeedBalance(voucherAddress);
+}
+
+function setPoolBalance(poolAddress: string, voucherAddress: string, value: bigint) {
+  const key = `${poolAddress.toLowerCase()}:${voucherAddress.toLowerCase()}`;
+  poolBalanceOverrides.set(key, value);
+}
+
 // Transactions recorded by mockSend (prepended to the events feed)
 type DynamicTransaction = {
   id: number;
@@ -234,6 +256,96 @@ const mockPoolRouter = router({
     ),
 
   featuredPools: publicProcedure.query(() => MOCK_POOLS.slice(0, 3)),
+
+  // Per-voucher balances for a pool + the logged-in user. Single source of
+  // truth shared with the wallet via getBalance/balanceOverrides, so sends and
+  // swaps reflect everywhere. Consumed by useSwapPool in mock mode.
+  swapBalances: publicProcedure.input(addressSchema).query(({ ctx, input }) => {
+    const userAddr = ctx.session?.address?.toLowerCase() ?? "";
+    const pool = MOCK_POOLS.find(
+      (p) => p.contract_address.toLowerCase() === input.toLowerCase()
+    );
+    const user: Record<string, bigint> = {};
+    const poolBalances: Record<string, bigint> = {};
+    if (pool) {
+      for (const addr of pool.voucher_addresses) {
+        const v = MOCK_VOUCHERS.find(
+          (mv) => mv.voucher_address.toLowerCase() === addr.toLowerCase()
+        );
+        const owned = v?.redemption_address.toLowerCase() === userAddr;
+        user[addr.toLowerCase()] = getBalance(userAddr, addr, owned);
+        poolBalances[addr.toLowerCase()] = getPoolBalance(input, addr);
+      }
+    }
+    return { user, pool: poolBalances, limit: POOL_LIMIT };
+  }),
+
+  // Execute a swap in mock mode: debit fromToken / credit toToken for the user
+  // (1:1 price index, no fee) and mirror it in the pool's balances.
+  mockSwap: authenticatedProcedure
+    .input(
+      z.object({
+        poolAddress: z.string(),
+        fromAddress: z.string(),
+        toAddress: z.string(),
+        amount: z.number().positive(),
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      const userAddr = ctx.session.address.toLowerCase();
+      const poolAddr = input.poolAddress.toLowerCase();
+      const fromAddr = input.fromAddress.toLowerCase();
+      const toAddr = input.toAddress.toLowerCase();
+      const amountUnits = BigInt(Math.round(input.amount * 1_000_000));
+
+      const fromV = MOCK_VOUCHERS.find(
+        (v) => v.voucher_address.toLowerCase() === fromAddr
+      );
+      const toV = MOCK_VOUCHERS.find(
+        (v) => v.voucher_address.toLowerCase() === toAddr
+      );
+      const userOwnsFrom = fromV?.redemption_address.toLowerCase() === userAddr;
+      const userOwnsTo = toV?.redemption_address.toLowerCase() === userAddr;
+
+      const userFrom = getBalance(userAddr, fromAddr, userOwnsFrom);
+      if (userFrom < amountUnits) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Insufficient balance",
+        });
+      }
+      // 1:1 price index and zero fee in mock mode
+      const amountOut = amountUnits;
+
+      // User: spend fromToken, receive toToken
+      balanceOverrides.set(`${userAddr}:${fromAddr}`, userFrom - amountUnits);
+      balanceOverrides.set(
+        `${userAddr}:${toAddr}`,
+        getBalance(userAddr, toAddr, userOwnsTo) + amountOut
+      );
+      // Pool: receives fromToken, gives out toToken
+      setPoolBalance(poolAddr, fromAddr, getPoolBalance(poolAddr, fromAddr) + amountUnits);
+      setPoolBalance(poolAddr, toAddr, getPoolBalance(poolAddr, toAddr) - amountOut);
+
+      // Record the received toToken as a transfer in the events feed
+      const id = ++dynamicTxCounter;
+      const txHash: `0x${string}` = `0x${id.toString(16).padStart(64, "0")}`;
+      dynamicTransactions.push({
+        id,
+        tx_hash: txHash,
+        date_block: new Date(),
+        type: "TOKEN_TRANSFER",
+        from_address: poolAddr,
+        to_address: userAddr,
+        contract_address: toAddr,
+        voucher_name: toV?.voucher_name ?? "",
+        voucher_symbol: toV?.symbol ?? "",
+        amount: input.amount.toString(),
+        success: true,
+      });
+
+      return { success: true, txHash };
+    }),
 
   swaps: publicProcedure
     .input(z.object({ poolAddress: z.string() }).passthrough())
@@ -718,10 +830,48 @@ const mockReportRouter = router({
 
 // ─── ENS Router ───────────────────────────────────────────────────────────
 
+// ─── Mock ENS resolution ─────────────────────────────────────────────────
+// Gives every persona and voucher a deterministic <slug>.sarafu.eth name so the
+// UI can show owner ENS names and resolve them back to addresses for sending.
+function ensSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+const mockEnsByAddress = new Map<string, string>();
+const mockEnsByName = new Map<string, string>();
+(function buildMockEns() {
+  for (const p of Object.values(MOCK_PERSONAS)) {
+    const name = `${ensSlug(p.given_names)}.sarafu.eth`;
+    mockEnsByAddress.set(p.address.toLowerCase(), name);
+    mockEnsByName.set(name, p.address);
+  }
+  for (const v of MOCK_VOUCHERS) {
+    const name = `${ensSlug(v.voucher_name)}.sarafu.eth`;
+    if (!mockEnsByAddress.has(v.voucher_address.toLowerCase())) {
+      mockEnsByAddress.set(v.voucher_address.toLowerCase(), name);
+    }
+    if (!mockEnsByName.has(name)) {
+      mockEnsByName.set(name, v.voucher_address);
+    }
+  }
+})();
+
 const mockEnsRouter = router({
   getENS: publicProcedure
-    .input(z.any().optional())
-    .query(() => null),
+    .input(z.object({ address: z.string() }))
+    .query(({ input }) => {
+      const name = mockEnsByAddress.get(input.address.toLowerCase());
+      return name ? { name } : null;
+    }),
+  getAddress: publicProcedure
+    .input(z.object({ ensName: z.string() }))
+    .query(({ input }) => {
+      const address = mockEnsByName.get(input.ensName.toLowerCase());
+      return address ? { address } : null;
+    }),
+  exists: publicProcedure
+    .input(z.object({ ensName: z.string() }))
+    .query(({ input }) => mockEnsByName.has(input.ensName.toLowerCase())),
 });
 
 // ─── Stub Routers (pass-through stubs for unused features) ───────────────

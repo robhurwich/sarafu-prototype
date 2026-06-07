@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useConfig, usePublicClient } from "wagmi";
 import { useAuth } from "~/hooks/use-auth";
+import { trpc } from "~/lib/trpc";
 import {
   addVoucherToPool,
   getContractIndex,
@@ -84,6 +85,7 @@ export const useSwapPool = (
   const client = usePublicClient({ config });
   const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
   const auth = useAuth();
+  const utils = trpc.useUtils();
   // In mock mode there is no wallet, so derive the user address from the session
   const effectiveAddress = isMockMode
     ? (auth?.session?.address?.toLowerCase() ?? "")
@@ -102,24 +104,30 @@ export const useSwapPool = (
         const vouchers = pool.voucher_addresses;
 
         const DECIMALS = 6;
-        const SCALE = 1_000_000n;
+
+        // Balances come from the server-side mock store (shared with the wallet),
+        // so sends and swaps are reflected here. Fetched fresh on every refetch.
+        // mockSwapBalances is a mock-only procedure (not on the real AppRouter),
+        // hence the cast — same pattern as me.mockSend in the send dialog.
+        const balances = await (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          (utils.pool as any).swapBalances.fetch(swapPoolAddress!) as Promise<{
+            user: Record<string, bigint>;
+            pool: Record<string, bigint>;
+            limit: bigint;
+          }>
+        );
 
         const voucherDetails = vouchers.map((addr) => {
           const v = MOCK_VOUCHERS.find(
             (mv) => mv.voucher_address.toLowerCase() === addr.toLowerCase()
           );
-          // Deterministic seed mirrors the mock router balance logic
-          const seed = parseInt(addr.slice(2, 6), 16) % 200;
-          const owned =
-            v?.redemption_address?.toLowerCase() === effectiveAddress;
-          // Owners get a healthy balance; non-owners get a small received amount
-          const userBalRaw = owned
-            ? BigInt(300 + seed) * SCALE
-            : BigInt(10 + (seed % 70)) * SCALE;
-          // Pool holds a varied amount of each voucher; limit is always 2000
-          const poolBalRaw = BigInt(800 + seed) * SCALE;
-          const limitRaw = 2000n * SCALE;
-          const swapLimitRaw = limitRaw - poolBalRaw;
+          const key = addr.toLowerCase();
+          const userBalRaw = balances.user[key] ?? 0n;
+          const poolBalRaw = balances.pool[key] ?? 0n;
+          const limitRaw = balances.limit;
+          const swapLimitRaw =
+            limitRaw - poolBalRaw > 0n ? limitRaw - poolBalRaw : 0n;
 
           return {
             address: addr,

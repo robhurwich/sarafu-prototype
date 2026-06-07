@@ -333,6 +333,18 @@ export function SwapForm({ pool, onSuccess, initial }: SwapFormProps) {
   const queryClient = useQueryClient();
   const write = useWriteContract({ config });
   const { submitReferral, getReferralTag } = useDivviReferral();
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
+  // mockSwap is a mock-only procedure (not on the real AppRouter), so cast —
+  // same pattern as me.mockSend in the send dialog.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  const { mutateAsync: mockSwap } = (trpc.pool as any).mockSwap.useMutation() as {
+    mutateAsync: (input: {
+      poolAddress: string;
+      fromAddress: string;
+      toAddress: string;
+      amount: number;
+    }) => Promise<{ success: boolean; txHash: `0x${string}` }>;
+  };
 
   const form = useForm<z.infer<typeof swapFormSchema>>({
     resolver: zodResolver(swapFormSchema),
@@ -550,6 +562,40 @@ export function SwapForm({ pool, onSuccess, initial }: SwapFormProps) {
       if (!data.fromToken || !data.toToken || !pool) return;
       if (!data.amount || Number(data.amount) <= 0) return;
 
+      // Mock mode: no wallet/contract calls. Execute the swap against the
+      // server-side mock balance store and refresh the pool + wallet views.
+      if (isMockMode) {
+        try {
+          safeDispatch({ type: "SET_PROGRESS", step: "Executing swap..." });
+          const res = await mockSwap({
+            poolAddress: pool.address,
+            fromAddress: data.fromToken.address,
+            toAddress: data.toToken.address,
+            amount: Number(data.amount),
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          await (utils.pool as any).swapBalances.invalidate();
+          void utils.me.events.invalidate();
+          void utils.me.vouchers.invalidate();
+          await queryClient.invalidateQueries({ queryKey: ["swapPool"] });
+          safeDispatch({
+            type: "SET_SUCCESS",
+            result: {
+              fromAmount: data.amount,
+              fromSymbol: data.fromToken.symbol,
+              toAmount: data.toAmount,
+              toSymbol: data.toToken.symbol,
+              toAddress: data.toToken.address,
+              txHash: res.txHash,
+            },
+          });
+        } catch (error) {
+          console.error(error);
+          safeDispatch({ type: "SET_ERROR", error: getSwapErrorMessage(error) });
+        }
+        return;
+      }
+
       try {
         const amountWithBuffer =
           parseUnits(data.amount, data.fromToken.decimals) * DEMURRAGE_BUFFER;
@@ -644,7 +690,7 @@ export function SwapForm({ pool, onSuccess, initial }: SwapFormProps) {
         safeDispatch({ type: "SET_ERROR", error: getSwapErrorMessage(error) });
       }
     },
-    [pool, write, config, utils, queryClient, submitReferral, getReferralTag, safeDispatch],
+    [pool, write, config, utils, queryClient, submitReferral, getReferralTag, safeDispatch, isMockMode, mockSwap],
   );
 
   // Render voucher chip
